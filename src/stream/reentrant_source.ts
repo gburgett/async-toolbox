@@ -9,7 +9,7 @@ type ReentrantSourceOptions<TState, TChunk> =
      * Fetches the next page of the source, returning a set of objects or ReentrantSource.EOF
      * to signal end of file.
      */
-    fetchNextPage(): Promise<TChunk[] | typeof EOF>,
+    fetchNextPage?(): Promise<TChunk[] | typeof EOF>,
   } | {
     /**
      * The initial value for the state object given to fetchNextPage
@@ -34,66 +34,85 @@ type ReentrantSourceOptions<TState, TChunk> =
  * stream processor where downstream checks may warrant adding new source objects
  * to the stream.
  */
-function ReentrantSource<TState, TChunk>(options: ReentrantSourceOptions<TState, TChunk>, values: TChunk[]): Duplex {
-  const queue = (values || [])
-  const state = 'initialState' in options ? options.initialState : undefined
-  let eof = false
-  let fetching = false
+export class ReentrantSource<TState = any, TChunk = any> extends Duplex {
+  /**
+   * The End Of File marker to be returned by fetchNextPage
+   */
+  public static readonly EOF = EOF
 
-  return new Duplex({
-    ...options,
-    read(size) {
-      let numPushed = 0
-      while (queue.length > 0) {
-        if (numPushed > size) {
-          break
-        }
-        if (!this.push(queue.shift())) {
-          numPushed++
-          break
-        }
+  protected _fetchNextPage: ReentrantSourceOptions<TState, TChunk>['fetchNextPage']
+
+  private _queue: TChunk[] = []
+  private _state: TState
+  private _eof = false
+  private _fetching = false
+
+  constructor(options: ReentrantSourceOptions<TState, TChunk>, values?: TChunk[]) {
+    super(options)
+
+    if (values) {
+      this._queue.push(...values)
+    }
+    if ('initialState' in options) {
+      this._state = options.initialState
+    }
+
+    if (options.fetchNextPage) {
+      this._fetchNextPage = options.fetchNextPage
+    }
+  }
+
+  public _read(size: number) {
+    let numPushed = 0
+    while (this._queue.length > 0) {
+      if (numPushed > size) {
+        break
       }
+      if (!this.push(this._queue.shift())) {
+        numPushed++
+        break
+      }
+    }
 
-      if (queue.length == 0) {
-        if (eof) {
-          this.push(null)
-        } else if (!fetching) {
-          fetching = true
-          options.fetchNextPage(state as TState)
-            .then((nextPage) => {
-              fetching = false
-              if (nextPage != EOF) {
-                queue.push(...nextPage)
-                if (queue.length == 0) {
-                  this.emit('error', 'fetchNextPage returned no results! ' +
-                    'Please return ReentrantSource.EOF to signal end of file.')
-                }
-                this.push(queue.shift())
-              } else {
-                eof = true
-                this.push(null)
+    if (this._queue.length == 0) {
+      if (this._eof) {
+        this.push(null)
+      } else if (!this._fetching && this._fetchNextPage) {
+
+        this._fetching = true
+        this._fetchNextPage(this._state)
+          .then((nextPage) => {
+            this._fetching = false
+
+            if (nextPage != EOF) {
+              this._queue.push(...nextPage)
+              if (this._queue.length == 0) {
+                this.emit('error', 'fetchNextPage returned no results! ' +
+                  'Please return ReentrantSource.EOF to signal end of file.')
               }
-            })
-            .catch((err) => {
-              fetching = false
-              this.emit('error', err)
-            })
-        }
+              this.push(this._queue.shift())
+            } else {
+              this.end()
+            }
+          })
+          .catch((err) => {
+            this._fetching = false
+            this.emit('error', err)
+          })
       }
-    },
-    write(chunk: TChunk, encoding, cb) {
-      queue.push(chunk)
-      cb()
-    },
-    writev(chunks, cb) {
-      chunks.forEach((c) => queue.push(c.chunk))
-      cb()
-    },
-    objectMode: true,
-  })
-}
+    }
+  }
 
-/**
- * The End Of File marker to be returned by fetchNextPage
- */
-ReentrantSource.EOF = EOF
+  public _write(chunk: TChunk, encoding: string, cb: (error?: Error | null) => void) {
+    this._queue.push(chunk)
+    cb()
+  }
+  public _writev(chunks: Array<{ chunk: TChunk, encoding: string }>, cb: (error?: Error | null) => void) {
+    chunks.forEach((c) => this._queue.push(c.chunk))
+    cb()
+  }
+  public _final(callback: (error?: Error | null) => void) {
+    this._eof = true
+    callback()
+  }
+}
