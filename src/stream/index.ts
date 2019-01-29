@@ -5,6 +5,7 @@ import './async_writer'
 
 export * from './parallel_transform'
 export * from './parallel_writable'
+export * from './reentrant_source'
 
 /**
  * Converts an array of chunks into a readable object stream which can be piped
