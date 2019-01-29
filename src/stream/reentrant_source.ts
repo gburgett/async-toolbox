@@ -38,17 +38,15 @@ export class ReentrantSource<TState = any, TChunk = any> extends Duplex {
   /**
    * The End Of File marker to be returned by fetchNextPage
    */
-  public static readonly EOF = EOF
-
-  protected _fetchNextPage: ReentrantSourceOptions<TState, TChunk>['fetchNextPage']
+  public static readonly EOF: typeof EOF = EOF
 
   private _queue: TChunk[] = []
-  private _state: TState
+  private _state: TState = {} as any
   private _eof = false
   private _fetching = false
 
   constructor(options: ReentrantSourceOptions<TState, TChunk>, values?: TChunk[]) {
-    super(options)
+    super(Object.assign({ objectMode: true }, options))
 
     if (values) {
       this._queue.push(...values)
@@ -105,14 +103,31 @@ export class ReentrantSource<TState = any, TChunk = any> extends Duplex {
 
   public _write(chunk: TChunk, encoding: string, cb: (error?: Error | null) => void) {
     this._queue.push(chunk)
+    if (this._queue.length == 1) {
+      this.push(this._queue.shift())
+    }
     cb()
   }
   public _writev(chunks: Array<{ chunk: TChunk, encoding: string }>, cb: (error?: Error | null) => void) {
     chunks.forEach((c) => this._queue.push(c.chunk))
+    if (this._queue.length == chunks.length) {
+      this.push(this._queue.shift())
+    }
     cb()
   }
   public _final(callback: (error?: Error | null) => void) {
     this._eof = true
+    if (this._queue.length > 0) {
+      this.push(this._queue.shift())
+    } else {
+      this.push(null)
+    }
     callback()
   }
+  /**
+   * Implemented by the subclass to fetch the next page of the source, returning a set of objects or
+   * ReentrantSource.EOF to signal end of file.  The function can manipulate the state object to save
+   * state between calls.
+   */
+  protected _fetchNextPage?(state: TState | undefined): Promise<TChunk[] | typeof EOF>
 }
