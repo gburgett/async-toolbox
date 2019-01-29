@@ -5,14 +5,14 @@
   "main": "dist/index",
   "files": [
     "dist/**/*",
-    "./events.js",
-    "./events.d.ts",
-    "./list.js",
-    "./list.d.ts",
-    "./request.js",
-    "./request.d.ts",
-    "./stream.js",
-    "./stream.d.ts"
+    "events.js",
+    "events.d.ts",
+    "list.js",
+    "list.d.ts",
+    "request.js",
+    "request.d.ts",
+    "stream.js",
+    "stream.d.ts"
   ],
   "repository": "https://github.com/gburgett/async-toolbox",
   "scripts": {
