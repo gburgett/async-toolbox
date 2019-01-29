@@ -1,5 +1,12 @@
 import { Writable } from 'stream'
-import { Semaphore } from '../semaphore'
+import { Action, Semaphore } from '../semaphore'
+
+interface SemaphoreInterface {
+  lock<T>(action: Action<T>): Promise<T>
+  isEmpty(): boolean
+
+  on(event: 'empty', cb: () => void): void
+}
 
 export interface ParallelWritableOptions {
   highWaterMark?: number
@@ -10,8 +17,16 @@ export interface ParallelWritableOptions {
    * The maximum number of chunks that can be written in parallel.  Use this
    * to, for instance, restrict the number of outgoing API calls you make in the
    * writeAsync implementation.
+   *
+   * Alternatively you can provide your own semaphore.
    */
   maxParallelChunks?: number
+
+  /**
+   * Provide a custom semaphore implementation to share a lock between multiple steps,
+   * ex. if multiple write steps are POSTing to the same rate-limited API.
+   */
+  semaphore?: SemaphoreInterface
 
   /**
    * Implement this function to write a single chunk. Multiple instances
@@ -33,12 +48,12 @@ export interface ParallelWritableOptions {
 export class ParallelWritable extends Writable {
 
   // tslint:disable-next-line:variable-name
-  private _semaphore: Semaphore
+  private _semaphore: SemaphoreInterface
 
   constructor(opts: ParallelWritableOptions) {
     super(opts)
 
-    this._semaphore = new Semaphore({maxInflight: opts.maxParallelChunks || Infinity})
+    this._semaphore = opts.semaphore || new Semaphore({maxInflight: opts.maxParallelChunks || Infinity})
     if (opts.writeAsync) {
       this._writeAsync = opts.writeAsync
     }
