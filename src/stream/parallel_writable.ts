@@ -53,7 +53,7 @@ export class ParallelWritable extends Writable {
   constructor(opts: ParallelWritableOptions) {
     super(opts)
 
-    this._semaphore = opts.semaphore || new Semaphore({maxInflight: opts.maxParallelChunks || Infinity})
+    this._semaphore = opts.semaphore || new Semaphore({ maxInflight: opts.maxParallelChunks || 4 })
     if (opts.writeAsync) {
       this._writeAsync = opts.writeAsync
     }
