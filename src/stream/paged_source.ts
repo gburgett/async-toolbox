@@ -1,9 +1,9 @@
-import { Duplex, DuplexOptions } from 'stream'
+import { Duplex, DuplexOptions, Readable, ReadableOptions } from 'stream'
 
 const EOF = Symbol('End of File')
 
-type ReentrantSourceOptions<TState, TChunk> =
-  Pick<DuplexOptions, 'allowHalfOpen' | 'highWaterMark' | 'final' | 'destroy'> &
+type PagedSourceOptions<TState, TChunk> =
+  Pick<ReadableOptions, 'highWaterMark' | 'destroy' | 'encoding'> &
   ({
     /**
      * Fetches the next page of the source, returning a set of objects or ReentrantSource.EOF
@@ -25,16 +25,13 @@ type ReentrantSourceOptions<TState, TChunk> =
   })
 
 /**
- * Creates a Duplex stream that queues up values written to it.
- * A function may be provided to look up the next page of results once the readable
- * queue is empty.  The write methods on the duplex stream add a chunk to the queue
- * to be processed.
+ * Creates a Readable stream that pages values from an API.
  *
  * This forms a base for something like an HTML hyperlink checker, or some other
  * stream processor where downstream checks may warrant adding new source objects
  * to the stream.
  */
-export class ReentrantSource<TState = any, TChunk = any> extends Duplex {
+export class PagedSource<TState = any, TChunk = any> extends Readable {
   /**
    * The End Of File marker to be returned by fetchNextPage
    */
@@ -45,11 +42,11 @@ export class ReentrantSource<TState = any, TChunk = any> extends Duplex {
   private _eof = false
   private _fetching = false
 
-  constructor(options: ReentrantSourceOptions<TState, TChunk>, values?: TChunk[]) {
+  constructor(options: PagedSourceOptions<TState, TChunk>, initialValues?: TChunk[]) {
     super(Object.assign({ objectMode: true }, options))
 
-    if (values) {
-      this._queue.push(...values)
+    if (initialValues) {
+      this._queue.push(...initialValues)
     }
     if ('initialState' in options) {
       this._state = options.initialState
@@ -85,12 +82,14 @@ export class ReentrantSource<TState = any, TChunk = any> extends Duplex {
             if (nextPage != EOF) {
               this._queue.push(...nextPage)
               if (this._queue.length == 0) {
-                this.emit('error', 'fetchNextPage returned no results! ' +
+                this.emit('warning', 'fetchNextPage returned no results! ' +
                   'Please return ReentrantSource.EOF to signal end of file.')
               }
               this.push(this._queue.shift())
             } else {
-              this.end()
+              // end
+              this._eof = true
+              this.push(null)
             }
           })
           .catch((err) => {
@@ -101,29 +100,13 @@ export class ReentrantSource<TState = any, TChunk = any> extends Duplex {
     }
   }
 
-  public _write(chunk: TChunk, encoding: string, cb: (error?: Error | null) => void) {
-    this._queue.push(chunk)
-    if (this._queue.length == 1) {
-      this.push(this._queue.shift())
-    }
-    cb()
-  }
-  public _writev(chunks: Array<{ chunk: TChunk, encoding: string }>, cb: (error?: Error | null) => void) {
-    chunks.forEach((c) => this._queue.push(c.chunk))
-    if (this._queue.length == chunks.length) {
-      this.push(this._queue.shift())
-    }
-    cb()
-  }
-  public _final(callback: (error?: Error | null) => void) {
+  public end() {
     this._eof = true
-    if (this._queue.length > 0) {
-      this.push(this._queue.shift())
-    } else {
+    if (this._queue.length == 0) {
       this.push(null)
     }
-    callback()
   }
+
   /**
    * Implemented by the subclass to fetch the next page of the source, returning a set of objects or
    * ReentrantSource.EOF to signal end of file.  The function can manipulate the state object to save
