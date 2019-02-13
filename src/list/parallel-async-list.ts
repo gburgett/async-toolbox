@@ -1,7 +1,14 @@
+import { Semaphore } from '../semaphore'
 import SequentialAsyncList from './sequential-async-list'
 
 type NotPromise<T> = Exclude<T, Promise<any>>
 type BindResult<U> = Promise<U[]> | Promise<U>
+
+type Options = {
+  semaphore: Semaphore,
+} | {
+  maxConcurrency?: number,
+}
 
 /**
  * A Monadic representation of a list of promises, exposing functions to
@@ -15,16 +22,16 @@ export default class ParallelAsyncList<T> implements Promise<T[]> {
    *
    * "Lifts" a set of items into the monadic space, so that they can be transformed.
    */
-  public static lift<T>(items: T[] | Promise<T[]>) {
+  public static lift<T>(items: T[] | Promise<T[]>, options?: Options) {
     if (Array.isArray(items)) {
-      return new ParallelAsyncList<T>(Promise.resolve(items))
+      return new ParallelAsyncList<T>(Promise.resolve(items), options || {})
     }
-    return new ParallelAsyncList<T>(items)
+    return new ParallelAsyncList<T>(items, options || {})
   }
 
   public readonly [Symbol.toStringTag]: string
 
-  private constructor(private promises: Promise<T[]>) { }
+  private constructor(private promises: Promise<T[]>, private readonly options: Options) { }
 
   /**
    * Transform each item in the sequential list using an async function
@@ -35,6 +42,7 @@ export default class ParallelAsyncList<T> implements Promise<T[]> {
   public flatMap<U>(fn: (item: T, index?: number) => Promise<U[]> | Promise<U>): ParallelAsyncList<U> {
     return new ParallelAsyncList<U>(
       this._bind(fn),
+      this.options,
     )
   }
 
@@ -46,6 +54,7 @@ export default class ParallelAsyncList<T> implements Promise<T[]> {
   public map<U>(fn: (item: T, index?: number) => U & NotPromise<U>): ParallelAsyncList<U> {
     return new ParallelAsyncList<U>(
       this._bind((item, idx) => Promise.resolve(fn(item, idx))),
+      this.options,
     )
   }
 
@@ -79,7 +88,9 @@ export default class ParallelAsyncList<T> implements Promise<T[]> {
    * execute in sequence.
    */
   public sequential(): SequentialAsyncList<T> {
-    return SequentialAsyncList.lift(this.promises)
+    return SequentialAsyncList.lift(this.promises, {
+      semaphore: 'semaphore' in this.options ? this.options.semaphore : undefined,
+    })
   }
 
   /**
