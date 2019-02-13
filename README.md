@@ -10,7 +10,7 @@ you can require as you desire.
 
 ## Utilities
 
-`import { wait, Semaphore } from 'async-toolbox'`
+`import { wait, Semaphore, Limiter, promisify, callbackify } from 'async-toolbox'`
 
 * `function wait(ms: number): Promise<void>`  
   Returns a promise which resolves after a given number of milliseconds, using setTimeout.
@@ -18,6 +18,13 @@ you can require as you desire.
 * `class Semaphore extends EventEmitter`  
     A Semaphore which queues up tasks to be executed once prior tasks are complete.
     Number of concurrent inflight tasks is configurable at initialization.
+
+* `class Limiter extends Semaphore`
+    A rate-limiting semaphore which uses [`limiter`](https://www.npmjs.com/package/limiter) to enforce the rate limiting.
+
+* `promisify` and `callbackify`
+    Accepts an action which either receives a callback or returns a promise,
+    and awaits the appropriate thing.
 
 ## Streams
 
@@ -46,6 +53,23 @@ Augments the EventEmitter class with new capabilities
 
 * `EventEmitter.onceAsync(event: string | symbol): Promise<any[]>`  
   Returns a promise that resolves the next time the emitter emits the given event.  The promise is rejected if the emitter emits 'error'.
+
+## List
+
+`import { sequential, parallel } from 'async-toolbox/list'`
+
+Creates a chainable monad which facilitates asynchronous transformations of data.
+
+This can be used to replace the following pattern of code:
+`await Promise.all(myList.map(async (item) => ...))`
+
+* `sequential(list, options?).flatMap(async (item) => ...)).flatMap(...`
+  Creates a monad which executes each async task in sequence, i.e. one at a time.
+  Can accept a semaphore implementation which is passed along to each step in the chain.
+
+* `parallel(list, options?).flatMap(async (item) => ...)).flatMap(...`
+  Creates a monad which executes all async tasks in parallel, with optionally limited concurrency.
+  Can accept a semaphore implementation which is passed along to each step in the chain.
 
 ## Request
 

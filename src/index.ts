@@ -1,13 +1,6 @@
-
-import * as list from './list'
-import * as stream from './stream'
-
 export * from './semaphore'
-
-// tslint:disable:variable-name
-export const Stream = stream
-export const List = list
-// tslint:enable:variable-name
+export * from './limiter'
+export * from './promisify'
 
 /**
  * Returns a promise which resolves after a given number of milliseconds,

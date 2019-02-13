@@ -5,7 +5,7 @@ type NotPromise<T> = Exclude<T, Promise<any>>
 type BindResult<U> = Promise<U[]> | Promise<U>
 type SemaphoreLock = <U>(action: () => Promise<U>) => Promise<U>
 
-interface Options {
+export interface SequentialAsyncListOptions {
   /**
    * Provide an optional semaphore to lock access to the resulting tasks.
    */
@@ -25,7 +25,7 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
    *
    * "Lifts" a set of items into the monadic space, so that they can be transformed.
    */
-  public static lift<T>(items: T[] | Promise<T[]>, options?: Options) {
+  public static lift<T>(items: T[] | Promise<T[]>, options?: SequentialAsyncListOptions) {
     if (Array.isArray(items)) {
       return new SequentialAsyncList<T>(Promise.resolve(items), options || {})
     }
@@ -35,7 +35,7 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
   public readonly [Symbol.toStringTag]: string
   private _semaphore: { lock: SemaphoreLock }
 
-  private constructor(private readonly promises: Promise<T[]>, private readonly options: Options) {
+  private constructor(private readonly promises: Promise<T[]>, private readonly options: SequentialAsyncListOptions) {
     if (options && options.semaphore) {
       this._semaphore = options.semaphore
     } else {

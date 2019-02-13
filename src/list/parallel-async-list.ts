@@ -1,11 +1,10 @@
-import { Semaphore } from '../semaphore'
 import { SequentialAsyncList } from './sequential-async-list'
 
 type NotPromise<T> = Exclude<T, Promise<any>>
 type BindResult<U> = Promise<U[]> | Promise<U>
 type SemaphoreLock = <U>(action: () => Promise<U>) => Promise<U>
 
-type Options = {
+export type ParallelAsyncListOptions = {
   semaphore: { lock: SemaphoreLock },
 } | {
   maxConcurrency?: number,
@@ -23,7 +22,7 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
    *
    * "Lifts" a set of items into the monadic space, so that they can be transformed.
    */
-  public static lift<T>(items: T[] | Promise<T[]>, options?: Options) {
+  public static lift<T>(items: T[] | Promise<T[]>, options?: ParallelAsyncListOptions) {
     if (Array.isArray(items)) {
       return new ParallelAsyncList<T>(Promise.resolve(items), options || {})
     }
@@ -33,7 +32,7 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
   public readonly [Symbol.toStringTag]: string
   private _semaphore: { lock: SemaphoreLock }
 
-  private constructor(private promises: Promise<T[]>, private readonly options: Options) {
+  private constructor(private promises: Promise<T[]>, private readonly options: ParallelAsyncListOptions) {
     if (options && 'semaphore' in options) {
       this._semaphore = options.semaphore
     } else {

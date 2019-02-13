@@ -1,4 +1,4 @@
-import { Readable, Stream, Writable } from 'stream'
+import { Readable, Writable } from 'stream'
 
 import './async_reader'
 import './async_writer'
