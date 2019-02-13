@@ -18,7 +18,7 @@
   "scripts": {
     "lint": "tslint 'src/**/*.ts'",
     "test": "npm run clean && tsc --project tsconfig.test.json && nyc ava 'src/**/*.test.js'",
-    "test-watch": "ava --watch --serial",
+    "test-watch": "ava --watch",
     "coverage": "npm run test && nyc report --reporter=html && open coverage/index.html",
     "coveralls": "nyc report --reporter=text-lcov | coveralls",
     "build": "tsc",

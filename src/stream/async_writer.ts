@@ -47,6 +47,13 @@ function writeAsync(this: Writable & InternalAsyncState, chunk: any, encoding?: 
   })
 }
 
+function endAsync(this: Writable & InternalAsyncState): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    this.once('error', (err) => reject(err))
+    this.end(() => resolve())
+  })
+}
+
 declare module 'stream' {
   interface Writable {
     /**
@@ -59,6 +66,12 @@ declare module 'stream' {
      * @param encoding The encoding of the chunk
      */
     writeAsync(chunk: any, encoding?: string): Promise<void>
+
+    /**
+     * Ends the stream, returning a promise that completes when the stream is finished
+     * (i.e. the end callback has returned)
+     */
+    endAsync(): Promise<void>
   }
 
   interface Duplex {
@@ -72,7 +85,16 @@ declare module 'stream' {
      * @param encoding The encoding of the chunk
      */
     writeAsync(chunk: any, encoding?: string): Promise<void>
+
+    /**
+     * Ends the stream, returning a promise that completes when the stream is finished
+     * (i.e. the end callback has returned)
+     */
+    endAsync(): Promise<void>
   }
 }
+
 Writable.prototype.writeAsync = writeAsync
 Duplex.prototype.writeAsync = writeAsync
+Writable.prototype.endAsync = endAsync
+Duplex.prototype.endAsync = endAsync
