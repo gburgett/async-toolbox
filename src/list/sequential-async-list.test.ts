@@ -1,6 +1,6 @@
 import test from 'ava'
 import {wait} from '../.'
-import SequentialAsyncList from './sequential-async-list'
+import { SequentialAsyncList } from './sequential-async-list'
 
 test('flatMap returns a SequentialAsyncList', (t) => {
   const subject = SequentialAsyncList.lift([1])

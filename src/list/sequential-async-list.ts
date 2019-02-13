@@ -1,5 +1,5 @@
 import { Semaphore } from '../semaphore'
-import ParallelAsyncList from './parallel-async-list'
+import { ParallelAsyncList } from './parallel-async-list'
 
 type NotPromise<T> = Exclude<T, Promise<any>>
 type BindResult<U> = Promise<U[]> | Promise<U>
@@ -17,7 +17,7 @@ interface Options {
  * the computations are run in-sequence and not in parallel, like you would
  * get with Promise.all(arr.map(async () => {}))
  */
-export default class SequentialAsyncList<T> implements Promise<T[]> {
+export class SequentialAsyncList<T> implements Promise<T[]> {
 
   /**
    * The constructor for a SequentialAsyncList.

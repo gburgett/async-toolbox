@@ -1,6 +1,6 @@
 import test from 'ava'
 import {wait} from '..'
-import ParallelAsyncList from './parallel-async-list'
+import { ParallelAsyncList } from './parallel-async-list'
 
 test('flatMap returns a ParallelAsyncList', (t) => {
   const subject = ParallelAsyncList.lift([1])
