@@ -1,6 +1,8 @@
 import test from 'ava'
 
-import { Action, Semaphore, TaskCB } from './semaphore'
+import { wait } from '.'
+import { Action, TaskCB } from './promisify'
+import { Semaphore } from './semaphore'
 
 test('runs a task', async (t) => {
   const semaphore = new Semaphore()
@@ -82,9 +84,3 @@ test('queues up tasks greater than maxInflight', async (t) => {
     queueSize: 0,
   })
 })
-
-function wait(ms = 1): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(), ms)
-  })
-}

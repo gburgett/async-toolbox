@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
+import { Action, promisify } from './promisify'
 
-interface SemaphoreConfig {
+export interface SemaphoreConfig {
   maxInflight: number
 }
 
@@ -10,9 +11,6 @@ interface Task<T> {
   action: Action<T>
   state: 'queued' | 'running' | 'released'
 }
-
-export type Action<T> = (() => Promise<T>) | ((cb: TaskCB<T>) => void)
-export type TaskCB<T> = (err: Error | null, result: T) => void
 
 /**
  * A Semaphore which queues up tasks to be executed once prior tasks are complete.
@@ -107,20 +105,7 @@ export class Semaphore extends EventEmitter {
     try {
       task.state = 'running'
 
-      let taskPromise: Promise<T> | void | undefined
-      const cbPromise = new Promise<T>((resolve, reject) => {
-        taskPromise = task.action((err, result) => {
-          if (err) {
-            reject(err)
-          } else {
-            resolve(result)
-          }
-        })
-      })
-
-      const promise = taskPromise && typeof taskPromise == 'object' && 'then' in taskPromise ?
-        taskPromise :
-        cbPromise
+      const promise = promisify(task.action)
 
       task.resolve(await promise)
     } catch (e) {

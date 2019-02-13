@@ -32,6 +32,9 @@
   ],
   "author": "Gordon Burgett (gordon@gordonburgett.net)",
   "license": "MIT",
+  "optionalDependencies": {
+    "limiter": "^1.1.4"
+  },
   "devDependencies": {
     "@types/node": "^10.12.18",
     "@types/request": "^2.48.1",

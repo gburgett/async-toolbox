@@ -1,8 +1,9 @@
 import { DuplexOptions, Transform, TransformCallback } from 'stream'
-import { Action, Semaphore } from '../semaphore'
+import { Action } from '../promisify'
+import { Semaphore } from '../semaphore'
 
 interface SemaphoreInterface {
-  lock<T>(action: Action<T>): Promise<T>
+  lock<T>(action: () => Promise<T>): Promise<T>
   isEmpty(): boolean
 
   on(event: 'empty', cb: () => void): void
