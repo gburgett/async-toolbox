@@ -92,6 +92,22 @@ test('all gets all results', async (t) => {
   t.deepEqual(result, [0, 2, 4, 6, 8, 10, 12, 14, 16, 18])
 })
 
+test('can convert to parallel', async (t) => {
+  const values = [0, 1, 2, 3, 4, 5]
+  const subject = SequentialAsyncList.lift(values)
+
+  const before = Date.now()
+  const result = await subject.parallel().flatMap(async (x) => {
+    await wait(100 - (x * 10))
+    return x * 10
+  })
+  const after = Date.now()
+
+  const expected = [0, 10, 20, 30, 40, 50]
+  t.deepEqual(result.sort((a, b) => a - b), expected.sort((a, b) => a - b))
+  t.true(after - before < (50 + 60 + 70 + 80 + 90 + 100))
+})
+
 function upTo(n: number): number[] {
   const arr = [] as number[]
   for (let i = 0; i <= n; i++) {

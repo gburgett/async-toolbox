@@ -1,3 +1,4 @@
+import ParallelAsyncList from './parallel-async-list'
 
 type NotPromise<T> = Exclude<T, Promise<any>>
 type BindResult<U> = Promise<U[]> | Promise<U>
@@ -82,6 +83,14 @@ export default class SequentialAsyncList<T> implements Promise<T[]> {
   public catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null)
     : Promise<T[] | TResult> {
       return this.promises.catch(onrejected)
+  }
+
+  /**
+   * Converts this sequential list to a parallel list, so that the next sequence
+   * of tasks execute in parallel.
+   */
+  public parallel(): ParallelAsyncList<T> {
+    return ParallelAsyncList.lift(this.promises)
   }
 
   /**

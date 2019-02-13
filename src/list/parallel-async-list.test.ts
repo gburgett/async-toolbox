@@ -82,6 +82,18 @@ test('all gets all results', async (t) => {
   t.deepEqual(result, [0, 2, 4, 6, 8, 10, 12, 14, 16, 18])
 })
 
+test('can convert to sequential', async (t) => {
+  const values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  const subject = ParallelAsyncList.lift(values)
+
+  const result = await subject.sequential().reduce(async (current, x) => {
+    await wait(10 - x)
+    return `${current}-${x}`
+  }, '|')
+
+  t.true(result == '|-0-1-2-3-4-5-6-7-8-9')
+})
+
 function upTo(n: number): number[] {
   const arr = [] as number[]
   for (let i = 0; i <= n; i++) {
