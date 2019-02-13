@@ -3,12 +3,13 @@ import { ParallelAsyncList } from './parallel-async-list'
 
 type NotPromise<T> = Exclude<T, Promise<any>>
 type BindResult<U> = Promise<U[]> | Promise<U>
+type SemaphoreLock = <U>(action: () => Promise<U>) => Promise<U>
 
 interface Options {
   /**
    * Provide an optional semaphore to lock access to the resulting tasks.
    */
-  semaphore?: Semaphore,
+  semaphore?: { lock: SemaphoreLock },
 }
 
 /**
@@ -32,18 +33,13 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
   }
 
   public readonly [Symbol.toStringTag]: string
-  private _semaphore: Semaphore | undefined
-  private _lock: <U>(action: () => Promise<U>) => Promise<U>
+  private _semaphore: { lock: SemaphoreLock }
 
   private constructor(private readonly promises: Promise<T[]>, private readonly options: Options) {
-    if (options) {
+    if (options && options.semaphore) {
       this._semaphore = options.semaphore
-    }
-
-    if (this._semaphore) {
-      this._lock = this._semaphore.lock
     } else {
-      this._lock = (action) => action()
+      this._semaphore = { lock: (action) => action() }
     }
   }
 
@@ -56,7 +52,9 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
   public flatMap<U>(fn: (item: T, index?: number) => Promise<U[]> | Promise<U>): SequentialAsyncList<U> {
     return new SequentialAsyncList<U>(
       this._bind(fn),
-      this.options,
+      {
+        semaphore: this._semaphore,
+      },
     )
   }
 
@@ -68,7 +66,9 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
   public map<U>(fn: (item: T, index?: number) => U & NotPromise<U>): SequentialAsyncList<U> {
     return new SequentialAsyncList<U>(
       this._bind((item, idx) => Promise.resolve(fn(item, idx))),
-      this.options,
+      {
+        semaphore: this._semaphore,
+      },
     )
   }
 
@@ -114,10 +114,9 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
    */
   public parallel(): ParallelAsyncList<T> {
     return ParallelAsyncList.lift(this.promises,
-      this.options.semaphore ? {
-        semaphore: this.options.semaphore,
-      } :
-      {})
+      {
+        semaphore: this._semaphore,
+      })
   }
 
   /**
@@ -132,7 +131,9 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
     const arr = (await this.promises)
     const result = [] as U[]
     for (let i = 0; i < arr.length; i++) {
-      const output = await this._lock<U[] | U>(() => fn(arr[i], i))
+      const output = await this._semaphore.lock<U[] | U>(
+        () => fn(arr[i], i),
+      )
 
       if (Array.isArray(output)) {
         result.push(...output)

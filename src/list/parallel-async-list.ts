@@ -3,9 +3,10 @@ import { SequentialAsyncList } from './sequential-async-list'
 
 type NotPromise<T> = Exclude<T, Promise<any>>
 type BindResult<U> = Promise<U[]> | Promise<U>
+type SemaphoreLock = <U>(action: () => Promise<U>) => Promise<U>
 
 type Options = {
-  semaphore: Semaphore,
+  semaphore: { lock: SemaphoreLock },
 } | {
   maxConcurrency?: number,
 }
@@ -30,8 +31,15 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
   }
 
   public readonly [Symbol.toStringTag]: string
+  private _semaphore: { lock: SemaphoreLock }
 
-  private constructor(private promises: Promise<T[]>, private readonly options: Options) { }
+  private constructor(private promises: Promise<T[]>, private readonly options: Options) {
+    if (options && 'semaphore' in options) {
+      this._semaphore = options.semaphore
+    } else {
+      this._semaphore = { lock: (action) => action() }
+    }
+  }
 
   /**
    * Transform each item in the sequential list using an async function
@@ -42,7 +50,9 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
   public flatMap<U>(fn: (item: T, index?: number) => Promise<U[]> | Promise<U>): ParallelAsyncList<U> {
     return new ParallelAsyncList<U>(
       this._bind(fn),
-      this.options,
+      {
+        semaphore: this._semaphore,
+      },
     )
   }
 
@@ -54,7 +64,9 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
   public map<U>(fn: (item: T, index?: number) => U & NotPromise<U>): ParallelAsyncList<U> {
     return new ParallelAsyncList<U>(
       this._bind((item, idx) => Promise.resolve(fn(item, idx))),
-      this.options,
+      {
+        semaphore: this._semaphore,
+      },
     )
   }
 
@@ -89,7 +101,7 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
    */
   public sequential(): SequentialAsyncList<T> {
     return SequentialAsyncList.lift(this.promises, {
-      semaphore: 'semaphore' in this.options ? this.options.semaphore : undefined,
+      semaphore: this._semaphore,
     })
   }
 
@@ -105,7 +117,10 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
     const arr = (await this.promises)
 
     const result = arr.map<Promise<U[]>>(async (val, i) => {
-      const output = await fn(val, i)
+      const output = await this._semaphore.lock<U[] | U>(
+        () => fn(val, i),
+      )
+
       if (Array.isArray(output)) {
         return output
       }
