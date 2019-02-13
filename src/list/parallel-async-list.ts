@@ -5,10 +5,10 @@ type BindResult<U> = Promise<U[]> | Promise<U>
 /**
  * A Monadic representation of a list of promises, exposing functions to
  * do computations over the promises.  The key feature of this monad is that
- * the computations are run in-sequence and not in parallel, like you would
- * get with Promise.all(arr.map(async () => {}))
+ * the computations are run in parallel, like you would
+ * get with Promise.all(arr.map(async () => {})).
  */
-export default class SequentialAsyncList<T> implements Promise<T[]> {
+export default class ParallelAsyncList<T> implements Promise<T[]> {
   /**
    * The constructor for a SequentialAsyncList.
    *
@@ -16,9 +16,9 @@ export default class SequentialAsyncList<T> implements Promise<T[]> {
    */
   public static lift<T>(items: T[] | Promise<T[]>) {
     if (Array.isArray(items)) {
-      return new SequentialAsyncList<T>(Promise.resolve(items))
+      return new ParallelAsyncList<T>(Promise.resolve(items))
     }
-    return new SequentialAsyncList<T>(items)
+    return new ParallelAsyncList<T>(items)
   }
 
   public readonly [Symbol.toStringTag]: string
@@ -31,8 +31,8 @@ export default class SequentialAsyncList<T> implements Promise<T[]> {
    * The function is only invoked after the promise from the previous function completes.
    */
   // monad bind
-  public flatMap<U>(fn: (item: T, index?: number) => Promise<U[]> | Promise<U>): SequentialAsyncList<U> {
-    return new SequentialAsyncList<U>(
+  public flatMap<U>(fn: (item: T, index?: number) => Promise<U[]> | Promise<U>): ParallelAsyncList<U> {
+    return new ParallelAsyncList<U>(
       this._bind(fn),
     )
   }
@@ -42,8 +42,8 @@ export default class SequentialAsyncList<T> implements Promise<T[]> {
    *
    * The function is only invoked after the previous promise in sequence completes.
    */
-  public map<U>(fn: (item: T, index?: number) => U & NotPromise<U>): SequentialAsyncList<U> {
-    return new SequentialAsyncList<U>(
+  public map<U>(fn: (item: T, index?: number) => U & NotPromise<U>): ParallelAsyncList<U> {
+    return new ParallelAsyncList<U>(
       this._bind((item, idx) => Promise.resolve(fn(item, idx))),
     )
   }
@@ -52,19 +52,8 @@ export default class SequentialAsyncList<T> implements Promise<T[]> {
    * Do something for each promise in sequence.  Returns a promise that can be awaited
    * to get the result.
    */
-  public async forEach(fn: (item: T, index?: number) => Promise<void>): Promise<void> {
+  public async forEach(fn: (item: T, index?: number) => Promise<any>): Promise<void> {
     await this._bind(fn)
-  }
-
-  /**
-   * Reduce each item in the sequence.
-   */
-  public async reduce<U>(fn: (aggregate: U, current: T, index?: number) => Promise<U>, initial: U): Promise<U> {
-    let aggregate = initial
-    await this._bind(async (item, index) => (
-      aggregate = await fn(aggregate, item, index)
-    ))
-    return aggregate
   }
 
   /**
@@ -94,18 +83,24 @@ export default class SequentialAsyncList<T> implements Promise<T[]> {
     ): Promise<U[]> {
 
     const arr = (await this.promises)
-    const result = [] as U[]
-    for (let i = 0; i < arr.length; i++) {
-      const output = await fn(arr[i], i)
-      // await all the resulting transformations before executing the next one
+
+    const result = arr.map<Promise<U[]>>(async (val, i) => {
+      const output = await fn(val, i)
       if (Array.isArray(output)) {
-        for (const v of output) {
-          result.push(v)
-        }
-      } else {
-        result.push(output)
+        return output
       }
-    }
-    return result
+      return [output]
+    })
+
+    return compact(await Promise.all(result))
   }
+}
+
+function compact<U>(val: U[][]): U[] {
+  const arr = [] as U[]
+  for (const v of val) {
+    arr.push(...v)
+  }
+
+  return arr
 }
