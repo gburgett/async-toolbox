@@ -24,12 +24,11 @@ test('queues up tasks when they go over rate limit', async (t) => {
   t.true(timestamps.length == 20)
   t.true(end - start > 900) // should take more than 900 ms
 
-  timestamps = timestamps.map((ts) => ts - start)
+  timestamps = timestamps.map((ts) => ts - timestamps[0])
 
-  t.true(timestamps[0] < 100)
-  t.true(timestamps[1] < 200)
+  t.true(timestamps[1] < 100)
 
-  t.true(timestamps[19] > 900)
+  t.true(timestamps[19] > 800)
 })
 
 function upTo(n: number): number[] {
