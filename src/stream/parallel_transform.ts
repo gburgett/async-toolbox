@@ -74,19 +74,36 @@ export class ParallelTransform extends Transform {
   }
 
   public _flush(callback: TransformCallback) {
-    if (this._semaphore.isEmpty()) {
-      callback(undefined)
-    } else {
-      this._semaphore.on('empty', () => {
-        callback(undefined)
-      })
+    const finalize = () => {
+      // can't just use .lock here in case maxInflight > 1
+      if (this._semaphore.isEmpty()) {
+        this._flushAsync()
+          .then(
+            () => {
+              callback(undefined)
+            },
+            (err: Error) => {
+              callback(err)
+            },
+          )
+      } else {
+        this._semaphore.on('empty', () => {
+          finalize()
+        })
+      }
     }
+
+    finalize()
   }
 
   /**
    * @see ParallelTransformOptions['transformAsync']
    */
-  protected _transformAsync(this: ParallelTransform, chunk: any, encoding: string): Promise<void> {
+  protected _transformAsync(chunk: any, encoding: string): Promise<void> {
     throw new Error('No implementation given for _transformAsync')
+  }
+
+  protected _flushAsync(): Promise<void> {
+    return Promise.resolve()
   }
 }
