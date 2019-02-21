@@ -28,6 +28,49 @@ test('pipes from readable', async (t) => {
   t.notDeepEqual(chunks, upTo(1000))
 })
 
+test('calls finalize if provided', async (t) => {
+  const chunks: string[] = []
+
+  let release = null as unknown as () => void
+  const blocker = new Promise((resolve) => release = resolve)
+
+  const impl = class extends ParallelWritable {
+    public _writeAsync = async (chunk: string) => {
+      await wait(Math.random() * 10)
+      chunks.push(chunk)
+    }
+
+    public _finalAsync = async () => {
+      await blocker
+    }
+  }
+
+  const instance = new impl({ objectMode: true })
+
+  await instance.writeAsync('1')
+
+  const pEnd = instance.endAsync()
+  let pEndDone = false
+  let pEndErr = null as Error | null
+  pEnd.then(
+    () => pEndDone = true,
+    (err) => pEndErr = err,
+  )
+
+  await wait(10)
+
+  t.false(pEndDone)
+
+  release()
+
+  await pEnd
+
+  t.true(pEndDone)
+  t.falsy(pEndErr)
+
+  t.deepEqual(chunks, ['1'])
+})
+
 function upTo(n: number): string[] {
   const res: string[] = []
   for (let i = 0; i < n; i++) {

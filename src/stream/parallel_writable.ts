@@ -88,13 +88,26 @@ export class ParallelWritable extends Writable {
   }
 
   public _final(callback: (error?: Error | null) => void) {
-    if (this._semaphore.isEmpty()) {
-      callback(undefined)
-    } else {
-      this._semaphore.on('empty', () => {
-        callback(undefined)
-      })
+    const finalize = () => {
+      // can't just use .lock here in case maxInflight > 1
+      if (this._semaphore.isEmpty()) {
+        this._finalAsync()
+          .then(
+            () => {
+              callback(undefined)
+            },
+            (err: Error) => {
+              callback(err)
+            },
+          )
+      } else {
+        this._semaphore.on('empty', () => {
+          finalize()
+        })
+      }
     }
+
+    finalize()
   }
 
   /**
@@ -102,5 +115,9 @@ export class ParallelWritable extends Writable {
    */
   protected _writeAsync(chunk: any, encoding: string): Promise<void> {
     throw new Error('No implementation given for _writeAsync')
+  }
+
+  protected _finalAsync(): Promise<void> {
+    return Promise.resolve()
   }
 }

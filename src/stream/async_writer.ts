@@ -8,16 +8,31 @@ interface InternalAsyncState {
 }
 
 function writeAsync(this: Writable & InternalAsyncState, chunk: any, encoding?: string): Promise<void> {
+  return _awaitDraining.call(this, (cb: (err?: any) => void) => this.write(chunk, encoding, cb))
+}
+
+function endAsync(this: Writable & InternalAsyncState): Promise<void> {
+  return _awaitDraining.call(this, (cb: (err?: any) => void) => {
+    this.once('error', cb)
+    this.end(cb)
+  })
+}
+
+function _initAsyncWritableState(this: Writable & InternalAsyncState): void {
   if (this._asyncWrtiableState === undefined) {
     this._asyncWrtiableState = {
       draining: true,
       drainPromise: null,
     }
   }
+}
+
+function _awaitDraining(this: Writable & InternalAsyncState, action: (cb: (err?: any) => void) => void): Promise<void> {
+  _initAsyncWritableState.call(this)
 
   return new Promise<void>((resolve, reject) => {
     if (this._asyncWrtiableState!.draining) {
-      this._asyncWrtiableState!.draining = this.write(chunk, encoding, (err: any) => {
+      action((err) => {
         if (err) {
           reject(err)
         } else {
@@ -38,19 +53,11 @@ function writeAsync(this: Writable & InternalAsyncState, chunk: any, encoding?: 
       // await recursive
       this._asyncWrtiableState!.drainPromise!.then(
         () =>
-          this.writeAsync(chunk, encoding)
-            .then(resolve)
-            .catch(reject),
+          _awaitDraining.call(this, action)
+            .then(resolve, reject),
         (err) => reject(err),
       )
     }
-  })
-}
-
-function endAsync(this: Writable & InternalAsyncState): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    this.once('error', (err) => reject(err))
-    this.end(() => resolve())
   })
 }
 
