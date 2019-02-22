@@ -1,4 +1,4 @@
-import { Readable, Writable } from 'stream'
+import { Readable as ReadableImpl, Transform as TransformImpl, Writable as WritableImpl } from 'stream'
 
 import './async_reader'
 import './async_writer'
@@ -13,9 +13,9 @@ export * from './paged_source'
  * @param entries The entries to be read out of the stream
  * @returns a readable stream which provides the entries in sequence.
  */
-export function toReadable(entries: any[]): Readable {
+export function toReadable<T>(entries: T[]): Readable<T> {
   let index = 0
-  return new Readable({
+  return new ReadableImpl({
     objectMode: true,
     read(size) {
       if (index >= entries.length) {
@@ -37,14 +37,20 @@ export function toReadable(entries: any[]): Readable {
  * @param stream The readable stream to drain into an array
  * @returns a promise which completes when the stream is fully read.
  */
-export function collect(stream: Readable): Promise<any[]>
-export function collect(stream: Readable, cb: (chunk: any) => void): Promise<void>
+export function collect<T>(stream: Readable<T>): Promise<T[]>
+export function collect<T>(stream: Readable<T>, cb: (chunk: T) => void): Promise<void>
 
-export function collect(stream: Readable, cb?: (chunk: any) => void): Promise<any[]> | Promise<void> {
+export function collect(stream: NodeJS.ReadableStream): Promise<any[]>
+export function collect(stream: NodeJS.ReadableStream, cb: (chunk: any) => void): Promise<void>
+
+export function collect<T = any>(
+  stream: Readable<T> | NodeJS.ReadableStream,
+  cb?: (chunk: any) => void,
+): Promise<any[]> | Promise<void> {
   const result: any = []
 
-  return new Promise<any>((resolve, reject) => {
-    stream.pipe(new Writable({
+  return new Promise<T[]>((resolve, reject) => {
+    stream.pipe(new WritableImpl({
       objectMode: true,
       write: (chunk, encoding, callback) => {
         if (cb) {
@@ -64,4 +70,32 @@ export function collect(stream: Readable, cb?: (chunk: any) => void): Promise<an
 
     stream.on('error', (err) => reject(err))
   })
+}
+
+export interface Readable<T> extends ReadableImpl {
+  read(size?: number): T
+  readAsync(size?: number): Promise<T>
+  push(chunk: T, encoding?: string): boolean
+}
+
+export interface Writable<T> extends WritableImpl {
+  write(chunk: T, cb?: (error: Error | null | undefined) => void): boolean
+  write(chunk: T, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
+  writeAsync(chunk: T, encoding?: string): Promise<void>
+  end(cb?: () => void): void
+  end(chunk: T, cb?: () => void): void
+  end(chunk: T, encoding?: string, cb?: () => void): void
+}
+
+export interface Transform<T, U> extends TransformImpl {
+  read(size?: number): U
+  readAsync(size?: number): Promise<U>
+  push(chunk: U, encoding?: string): boolean
+
+  write(chunk: T, cb?: (error: Error | null | undefined) => void): boolean
+  write(chunk: T, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
+  writeAsync(chunk: T, encoding?: string): Promise<void>
+  end(cb?: () => void): void
+  end(chunk: T, cb?: () => void): void
+  end(chunk: T, encoding?: string, cb?: () => void): void
 }
