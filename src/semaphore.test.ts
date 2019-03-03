@@ -38,7 +38,7 @@ test('handles task error', async (t) => {
 })
 
 test('queues up tasks greater than maxInflight', async (t) => {
-  const semaphore = new Semaphore({ maxInflight: 2 })
+  const semaphore = new Semaphore({ tokens: 2 })
 
   const callbacks: Array<TaskCB<string>> = []
   const action: Action<string> = (cb) => callbacks.push(cb)
@@ -53,6 +53,7 @@ test('queues up tasks greater than maxInflight', async (t) => {
   t.deepEqual(semaphore.stats(), {
     inflight: 2,
     queueSize: 2,
+    availableTokens: 0,
   })
 
   callbacks[0](null, '1')
@@ -62,6 +63,7 @@ test('queues up tasks greater than maxInflight', async (t) => {
   t.deepEqual(semaphore.stats(), {
     inflight: 2,
     queueSize: 1,
+    availableTokens: 0,
   })
 
   await wait(1)
@@ -72,6 +74,7 @@ test('queues up tasks greater than maxInflight', async (t) => {
   t.deepEqual(semaphore.stats(), {
     inflight: 2,
     queueSize: 0,
+    availableTokens: 0,
   })
 
   await wait(1)
@@ -82,5 +85,50 @@ test('queues up tasks greater than maxInflight', async (t) => {
   t.deepEqual(semaphore.stats(), {
     inflight: 1,
     queueSize: 0,
+    availableTokens: 1,
   })
+})
+
+test('queues up a write task after all current read tasks', async (t) => {
+  const semaphore = new Semaphore({ tokens: 2 })
+
+  const callbacks: Array<TaskCB<string>> = []
+  const action: Action<string> = (cb) => {
+    callbacks.push(cb)
+  }
+  const p1 = semaphore.lock<string>(action)
+  const p2 = semaphore.lock<string>(action, 'write')
+  const p3 = semaphore.lock<string>(action)
+
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 1)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 1,
+    queueSize: 2,
+    availableTokens: 1,
+  })
+
+  callbacks[0](null, '1')
+  t.true(await p1 == '1')
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 2)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 1,
+    queueSize: 1,
+    availableTokens: 0,
+  })
+
+  callbacks[1](null, '2')
+  t.true(await p2 == '2')
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 3)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 1,
+    queueSize: 0,
+    availableTokens: 1,
+  })
+
 })

@@ -1,10 +1,9 @@
 import { Interval, RateLimiter } from 'limiter'
 
 import { Action, callbackify } from './promisify'
-import { Semaphore, SemaphoreConfig } from './semaphore'
+import { Semaphore, SemaphoreConfig, Stats } from './semaphore'
 
 interface LimiterConfig {
-  maxInflight?: number,
   tokensPerInterval: number,
   interval: Interval
 }
@@ -29,7 +28,7 @@ export class Limiter extends Semaphore {
     super()
 
     this.config = Object.assign({
-      maxInflight: Infinity,
+      tokens: Infinity,
     }, config)
     this._limiter = new RateLimiter(this.config.tokensPerInterval, this.config.interval)
   }
@@ -38,10 +37,10 @@ export class Limiter extends Semaphore {
    * Gets a snapshot of the current state of the semaphore.
    * @returns the current number of inflight requests, and the current queue size.
    */
-  public stats(): Readonly<{ inflight: number, queueSize: number, tokensRemaining: number }> {
+  public stats(): Readonly<Stats> {
     return {
       ...super.stats(),
-      tokensRemaining: this._limiter.getTokensRemaining(),
+      availableTokens: this._limiter.getTokensRemaining(),
     }
   }
 
