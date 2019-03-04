@@ -1,8 +1,8 @@
 import test from 'ava'
 
-import { wait } from '.'
-import { Action, TaskCB } from './promisify'
-import { Semaphore } from './semaphore'
+import { wait, waitUntil } from '.'
+import { TaskCB } from './promisify'
+import { Action, Semaphore } from './semaphore'
 
 test('runs a task', async (t) => {
   const semaphore = new Semaphore()
@@ -41,7 +41,7 @@ test('queues up tasks greater than maxInflight', async (t) => {
   const semaphore = new Semaphore({ tokens: 2 })
 
   const callbacks: Array<TaskCB<string>> = []
-  const action: Action<string> = (cb) => callbacks.push(cb)
+  const action: Action<string> = (_, cb) => callbacks.push(cb)
   const p1 = semaphore.lock<string>(action)
   const p2 = semaphore.lock<string>(action)
   const p3 = semaphore.lock<string>(action)
@@ -93,7 +93,7 @@ test('queues up a write task after all current read tasks', async (t) => {
   const semaphore = new Semaphore({ tokens: 2 })
 
   const callbacks: Array<TaskCB<string>> = []
-  const action: Action<string> = (cb) => {
+  const action: Action<string> = (_, cb) => {
     callbacks.push(cb)
   }
   const p1 = semaphore.lock<string>(action)
@@ -129,6 +129,111 @@ test('queues up a write task after all current read tasks', async (t) => {
     inflight: 1,
     queueSize: 0,
     availableTokens: 1,
+  })
+
+})
+
+test('can upgrade a readLock to a writeLock', async (t) => {
+  const semaphore = new Semaphore({ tokens: 2 })
+
+  const callbacks: Array<TaskCB<string>> = []
+  const action: Action<string> = (_, cb) => {
+    callbacks.push(cb)
+  }
+  const p1 = semaphore.lock<string>(action)
+
+  let p2upgraded = false
+  const p2 = semaphore.lock<string>((lock, cb) => {
+    callbacks.push(cb)
+    lock.upgrade().then(
+      () => { p2upgraded = true },
+      (err) => cb(err),
+    )
+  })
+  const p3 = semaphore.lock<string>(action)
+
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 2)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 2,
+    queueSize: 2,
+    availableTokens: 1,
+  })
+  t.false(p2upgraded)
+
+  callbacks[0](null, '1')
+  t.true(await p1 == '1')
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 2)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 1,
+    queueSize: 1,
+    availableTokens: 0,
+  })
+
+  await waitUntil(() => p2upgraded)
+
+  callbacks[1](null, '2')
+  t.true(await p2 == '2')
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 3)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 1,
+    queueSize: 0,
+    availableTokens: 1,
+  })
+
+})
+
+test('can downgrade a writeLock to a readLock', async (t) => {
+  const semaphore = new Semaphore({ tokens: 2 })
+
+  const callbacks: Array<TaskCB<string>> = []
+  const action: Action<string> = (_, cb) => {
+    callbacks.push(cb)
+  }
+  const p1 = semaphore.lock<string>(action)
+
+  let downgradeMe: (() => void) | null = null
+  const p2 = semaphore.lock<string>((lock, cb) => {
+    callbacks.push(cb)
+    downgradeMe = () => {
+      lock.downgrade()
+    }
+  }, 'write')
+  const p3 = semaphore.lock<string>(action)
+
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 1)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 1,
+    queueSize: 2,
+    availableTokens: 1,
+  })
+
+  callbacks[0](null, '1')
+  t.true(await p1 == '1')
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 2)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 1,
+    queueSize: 1,
+    availableTokens: 0,
+  })
+
+  downgradeMe!()
+  await wait(1)
+
+  t.deepEqual(callbacks.length, 3)
+  t.deepEqual(semaphore.stats(), {
+    inflight: 2,
+    queueSize: 0,
+    availableTokens: 0,
   })
 
 })

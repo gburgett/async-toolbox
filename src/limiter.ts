@@ -1,7 +1,7 @@
 import { Interval, RateLimiter } from 'limiter'
 
-import { Action, callbackify } from './promisify'
-import { Semaphore, SemaphoreConfig, Stats } from './semaphore'
+import { callbackify } from './promisify'
+import { Action, ReadLock, Semaphore, SemaphoreConfig, Stats, WriteLock } from './semaphore'
 
 interface LimiterConfig {
   tokensPerInterval: number,
@@ -57,11 +57,11 @@ export class Limiter extends Semaphore {
    * @returns A promise that completes when the action completes, returning the result
    *  of the action.
    */
-  public lock<T>(action: Action<T>): Promise<T> {
-    return super.lock((cb) => {
+  public lock<T>(action: Action<T>, rw: 'read' | 'write' = 'read'): Promise<T> {
+    return super.lock((lock, taskCallback) => {
       this._limiter.removeTokens(1, () => {
-        callbackify(action, cb)
+        callbackify((cb) => action(lock, cb), taskCallback)
       })
-    })
+    }, rw)
   }
 }

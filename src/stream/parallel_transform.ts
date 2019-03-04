@@ -1,5 +1,4 @@
 import { DuplexOptions, Transform, TransformCallback } from 'stream'
-import { Action } from '../promisify'
 import { Semaphore } from '../semaphore'
 
 interface SemaphoreInterface {

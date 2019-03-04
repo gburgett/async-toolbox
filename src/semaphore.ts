@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import { Action, promisify } from './promisify'
+import { promisify, TaskCB } from './promisify'
 
 export interface SemaphoreConfig {
   tokens: number
@@ -13,23 +13,32 @@ export interface Stats {
 
 // tslint:disable-next-line:no-empty-interface
 export interface ReadLock {
+  type: 'read'
+
+  upgrade(): Promise<WriteLock>
 }
 
 // tslint:disable-next-line:no-empty-interface
-export interface WriteLock extends ReadLock {
+export interface WriteLock {
+  type: 'write'
 
+  downgrade(): Promise<ReadLock>
 }
+
+export type Action<T, L extends ReadLock | WriteLock = ReadLock | WriteLock> =
+  ((lock: L) => Promise<T>) | ((lock: L, cb: TaskCB<T>) => void)
 
 type Task<T = any> = {
   tokens: number,
-  action: (task: Task<T>) => Promise<T>,
+  meta?: { [K: string]: any },
 } & (
   {
     state: 'uninitialized',
   } | {
+    action: (task: Task<T>) => Promise<T>,
     resolve: (value?: T | PromiseLike<T>) => void
     reject: (reason?: any) => void
-    state: 'initialized' | 'queued' | 'running' | 'released',
+    state: 'initialized' | 'running' | 'released',
   }
 )
 
@@ -88,34 +97,29 @@ export class Semaphore extends EventEmitter {
    * @returns A promise that completes when the action completes, returning the result
    *  of the action.
    */
+  public lock<T>(action: Action<T, ReadLock>, rw?: 'read'): Promise<T>
+  public lock<T>(action: Action<T, WriteLock>, rw: 'write'): Promise<T>
+  public lock<T>(action: Action<T>, rw?: 'read' | 'write'): Promise<T>
+
   public lock<T>(action: Action<T>, rw: 'read' | 'write' = 'read'): Promise<T> {
+    rw = rw && rw == 'write' ? 'write' : 'read'
     const task: Task<T> = {
-      action: () => promisify(action),
-      tokens: rw && rw == 'write' ? this.config.tokens : 1,
+      tokens: rw == 'write' ? this.config.tokens : 1,
+      meta: { from: '_lock' },
       state: 'uninitialized',
-    }
-
-    const enqueue = (toEnqueue: Task<T>) => {
-      if (toEnqueue.state != 'initialized') {
-        throw new Error(`Cannot run an uninitialized task! ${toEnqueue}`)
-      }
-
-      if (this.queue.length == 0 &&
-          (this.inflightTokens + toEnqueue.tokens) <= this.config.tokens) {
-        this.inflightTokens += toEnqueue.tokens
-        this.inflight.push(toEnqueue)
-        // yield the execution queue before running the next request
-        setTimeout(() => this._runTask(toEnqueue), 0)
-      } else {
-        toEnqueue.state = 'queued'
-        this.queue.push(toEnqueue)
-      }
     }
 
     const promise = new Promise<T>((resolve, reject) => {
       Object.assign(task,
         {
           state: 'initialized',
+          action: () => promisify(
+            (cb) => {
+              const lock = rw == 'write' ?
+                new Semaphore.WriteLockImpl(task, this) :
+                new Semaphore.ReadLockImpl(task, this)
+              return action(lock, cb)
+            }),
           resolve: (result: any) => {
             this._release(task)
             resolve(result)
@@ -125,44 +129,101 @@ export class Semaphore extends EventEmitter {
             reject(err)
           },
         })
-      enqueue(task)
+      this._onInitialized(task)
     })
+
+    this._enqueue(task)
 
     return promise
   }
 
-  private _release(task: Task<any>) {
+  private _enqueue(task: Task, priority?: boolean) {
+    if (task.state != 'initialized' && task.state != 'uninitialized') {
+      throw new Error(`Cannot enqueue a previously enqueued task! ${task}`)
+    }
+
+    if (task.state == 'initialized' &&
+        this.queue.length == 0 &&
+        (this.inflightTokens + task.tokens) <= this.config.tokens) {
+      this.inflightTokens += task.tokens
+      this.inflight.push(task)
+      // yield the execution queue before running the next request
+      setTimeout(() => this._runTask(task), 0)
+    } else {
+      if (priority) {
+        this.queue.unshift(task)
+      } else {
+        this.queue.push(task)
+      }
+    }
+  }
+
+  private _onInitialized(task: Task) {
+    if (this.inflight.length == 0 && this.queue.length > 0) {
+      // we need to pump the queue now that the task has been initialized
+      this._releaseTokens(0)
+    }
+  }
+
+  private _release(task: Task) {
     const taskIndex = this.inflight.indexOf(task)
     if (taskIndex == -1 || task.state != 'running') {
       throw new Error(`Cannot release a task that isn't running: ${task}`)
     }
 
-    delete(task.resolve)
-    delete(task.reject)
+    this._releaseTokens(task.tokens)
     task.state = 'released'
     this.inflight.splice(taskIndex, 1)
-    this.inflightTokens -= task.tokens
+    if (this.isEmpty()) {
+      this.emit('empty')
+    }
+  }
+
+  private _releaseTokens(tokens: number) {
+    this.inflightTokens -= tokens
 
     const nextTask = this.queue[0]
     if (nextTask) {
-      if (this.inflight.length == 0 || (this.inflightTokens + nextTask.tokens) <= this.config.tokens) {
+      if (nextTask.state == 'uninitialized') {
+        // put it back on the queue till it gets initialized
+        this._enqueue(nextTask)
+      } else if (this.inflight.length == 0 || (this.inflightTokens + nextTask.tokens) <= this.config.tokens) {
         this.queue.shift()
         this.inflightTokens += nextTask.tokens
         this.inflight.push(nextTask)
         // yield the execution queue before running the next request
         setTimeout(() => this._runTask(nextTask), 0)
       }
-    } else {
-      if (this.isEmpty()) {
-        this.emit('empty')
-      }
     }
+  }
 
-    const calculatedInflight = this.inflight.reduce((memo, t) =>  memo + t.tokens, 0)
-    if (this.inflightTokens != calculatedInflight) {
-      throw new Error(`Invalid state: number of current tokens does not match inflight tasks. ` +
-        `${this.inflightTokens} ${calculatedInflight}`)
+  private _acquireTokens(tokens: number, priority?: boolean): Promise<number> {
+    const task: Task<number> = {
+      state: 'uninitialized',
+      meta: { from: '_acquireTokens' },
+      tokens,
     }
+    this._enqueue(task, priority)
+
+    return new Promise((resolve, reject) => {
+      Object.assign(task, {
+        state: 'initialized',
+        action: () => {
+          return Promise.resolve(tokens)
+        },
+        resolve: () => {
+          // the tokens are transferred to the promise consumer
+          task.tokens = 0
+          this._release(task)
+          resolve(tokens)
+        },
+        reject: (err: any) => {
+          this._release(task)
+          reject(err)
+        },
+      })
+      this._onInitialized(task)
+    })
   }
 
   private async _runTask<T>(task: Task<T>) {
@@ -174,20 +235,74 @@ export class Semaphore extends EventEmitter {
       task.state = 'running'
       task.resolve(await task.action(task))
     } catch (e) {
-      if (task.reject) {
+      if (task.reject && task.state == 'running') {
         task.reject(e)
       } else {
         throw e
       }
     }
   }
-}
 
-// tslint:disable:max-classes-per-file
-class ReadLockImpl implements ReadLock {
+  // tslint:disable:member-ordering
+  // tslint:disable:max-classes-per-file
+  // tslint:disable:variable-name
+  private static readonly ReadLockImpl = class implements ReadLock {
+    public type: 'read'
 
-}
+    private consumed: boolean
 
-class WriteLockImpl extends ReadLockImpl implements WriteLock {
+    constructor(private readonly task: Task, private readonly semaphore: Semaphore) {
+      this.type = 'read'
+    }
 
+    public async upgrade(): Promise<WriteLock> {
+      if (this.consumed) {
+        throw new Error('Cannot upgrade again - please use the lock returned by previous upgrade() call')
+      }
+      const taskIndex = this.semaphore.inflight.indexOf(this.task)
+      if (this.task.state != 'running' || taskIndex == -1) {
+        throw new Error(`Cannot upgrade a non-running task!  Did you forget to await something?` +
+          `  Task state was ${this.task.state}`)
+      }
+      this.consumed = true
+
+      // becomes a write lock by setting the number of tokens
+      const maxTokens = this.semaphore.config.tokens
+      const p = this.semaphore._acquireTokens(maxTokens, true)
+
+      // acquiring max tokens doesn't happen till we release our task's tokens
+      this.semaphore._releaseTokens(this.task.tokens)
+      this.task.tokens = 0
+
+      this.task.tokens = await p
+
+      return new Semaphore.WriteLockImpl(this.task, this.semaphore)
+    }
+  }
+
+  private static readonly WriteLockImpl = class implements WriteLock {
+    public type: 'write'
+
+    private consumed: boolean
+
+    constructor(private readonly task: Task, private readonly semaphore: Semaphore) {
+      this.type = 'write'
+    }
+
+    public async downgrade(): Promise<ReadLock> {
+      if (this.consumed) {
+        throw new Error('Cannot downgrade again - please use the lock returned by previous downgrade() call')
+      }
+
+      const tokensToRelease = this.task.tokens - 1
+      if (tokensToRelease <= 0) {
+        throw new Error(`Cannot downgrade a lock that has fewer than two tokens (had ${this.task.tokens})`)
+      }
+
+      this.semaphore._releaseTokens(tokensToRelease)
+      this.task.tokens -= tokensToRelease
+
+      return new Semaphore.ReadLockImpl(this.task, this.semaphore)
+    }
+  }
 }
