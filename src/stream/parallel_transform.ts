@@ -1,8 +1,8 @@
 import { DuplexOptions, Transform, TransformCallback } from 'stream'
-import { Semaphore } from '../semaphore'
+import { ReadLock, Semaphore } from '../semaphore'
 
 interface SemaphoreInterface {
-  lock<T>(action: () => Promise<T>): Promise<T>
+  lock<T>(action: (lock: ReadLock) => Promise<T>): Promise<T>
   isEmpty(): boolean
 
   on(event: 'empty', cb: () => void): void
@@ -35,7 +35,7 @@ export interface ParallelTransformOptions extends DuplexOptions {
    * @param chunk The chunk to transform
    * @param encoding The encoding of the current chunk
    */
-  transformAsync?(this: ParallelTransform, chunk: any, encoding: string): Promise<void>
+  transformAsync?(this: ParallelTransform, chunk: any, lock: ReadLock): Promise<void>
 }
 
 /**
@@ -64,10 +64,10 @@ export class ParallelTransform extends Transform {
   }
 
   public _transform(chunk: any, encoding: string, callback: TransformCallback) {
-    this._semaphore.lock(async () => {
+    this._semaphore.lock(async (lock) => {
       // Tell the stream lib to send us more data
       callback(undefined)
-      return await this._transformAsync(chunk, encoding)
+      return await this._transformAsync(chunk, lock)
     })
       .catch((err) => this.emit('error', err))
   }
@@ -98,7 +98,7 @@ export class ParallelTransform extends Transform {
   /**
    * @see ParallelTransformOptions['transformAsync']
    */
-  protected _transformAsync(chunk: any, encoding: string): Promise<void> {
+  protected _transformAsync(chunk: any, lock: ReadLock): Promise<void> {
     throw new Error('No implementation given for _transformAsync')
   }
 
