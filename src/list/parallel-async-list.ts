@@ -1,3 +1,4 @@
+import { Semaphore } from '../semaphore'
 import { SequentialAsyncList } from './sequential-async-list'
 
 type NotPromise<T> = Exclude<T, Promise<any>>
@@ -35,6 +36,10 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
   private constructor(private promises: Promise<T[]>, private readonly options: ParallelAsyncListOptions) {
     if (options && 'semaphore' in options) {
       this._semaphore = options.semaphore
+    } else if (options && 'maxConcurrency' in options && options.maxConcurrency) {
+      this._semaphore = new Semaphore({
+        tokens: options.maxConcurrency,
+      })
     } else {
       this._semaphore = { lock: (action) => action() }
     }
@@ -46,7 +51,7 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
    * The function is only invoked after the promise from the previous function completes.
    */
   // monad bind
-  public flatMap<U>(fn: (item: T, index?: number) => Promise<U[]> | Promise<U>): ParallelAsyncList<U> {
+  public flatMap<U>(fn: (item: T, index: number) => Promise<U[]> | Promise<U>): ParallelAsyncList<U> {
     return new ParallelAsyncList<U>(
       this._bind(fn),
       {
@@ -56,11 +61,11 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
   }
 
   /**
-   * Transform each item in the sequential list using an async function
+   * Transform each item in the sequential list using a non-async function
    *
    * The function is only invoked after the previous promise in sequence completes.
    */
-  public map<U>(fn: (item: T, index?: number) => U & NotPromise<U>): ParallelAsyncList<U> {
+  public map<U>(fn: (item: T, index: number) => U & NotPromise<U>): ParallelAsyncList<U> {
     return new ParallelAsyncList<U>(
       this._bind((item, idx) => Promise.resolve(fn(item, idx))),
       {
@@ -73,7 +78,7 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
    * Do something for each promise in sequence.  Returns a promise that can be awaited
    * to get the result.
    */
-  public async forEach(fn: (item: T, index?: number) => Promise<any>): Promise<void> {
+  public async forEach(fn: (item: T, index: number) => Promise<any>): Promise<void> {
     await this._bind(fn)
   }
 
@@ -110,7 +115,7 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
    * Applies the transform function after all promises from prior transformations have finished.
    */
   protected async _bind<U>(
-    fn: (item: T, index?: number) => BindResult<U>,
+    fn: (item: T, index: number) => BindResult<U>,
     ): Promise<U[]> {
 
     const arr = (await this.promises)

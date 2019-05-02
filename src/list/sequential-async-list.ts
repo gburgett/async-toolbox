@@ -49,7 +49,7 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
    * The function is only invoked after the promise from the previous function completes.
    */
   // monad bind
-  public flatMap<U>(fn: (item: T, index?: number) => Promise<U[]> | Promise<U>): SequentialAsyncList<U> {
+  public flatMap<U>(fn: (item: T, index: number) => Promise<U[]> | Promise<U>): SequentialAsyncList<U> {
     return new SequentialAsyncList<U>(
       this._bind(fn),
       {
@@ -63,7 +63,7 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
    *
    * The function is only invoked after the previous promise in sequence completes.
    */
-  public map<U>(fn: (item: T, index?: number) => U & NotPromise<U>): SequentialAsyncList<U> {
+  public map<U>(fn: (item: T, index: number) => U & NotPromise<U>): SequentialAsyncList<U> {
     return new SequentialAsyncList<U>(
       this._bind((item, idx) => Promise.resolve(fn(item, idx))),
       {
@@ -76,14 +76,14 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
    * Do something for each promise in sequence.  Returns a promise that can be awaited
    * to get the result.
    */
-  public async forEach(fn: (item: T, index?: number) => Promise<void>): Promise<void> {
+  public async forEach(fn: (item: T, index: number) => Promise<void>): Promise<void> {
     await this._bind(fn)
   }
 
   /**
    * Reduce each item in the sequence.
    */
-  public async reduce<U>(fn: (aggregate: U, current: T, index?: number) => Promise<U>, initial: U): Promise<U> {
+  public async reduce<U>(fn: (aggregate: U, current: T, index: number) => Promise<U>, initial: U): Promise<U> {
     let aggregate = initial
     await this._bind(async (item, index) => (
       aggregate = await fn(aggregate, item, index)
@@ -125,7 +125,7 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
    * Applies the transform function after all promises from prior transformations have finished.
    */
   protected async _bind<U>(
-    fn: (item: T, index?: number) => BindResult<U>,
+    fn: (item: T, index: number) => BindResult<U>,
     ): Promise<U[]> {
 
     const arr = (await this.promises)
