@@ -69,7 +69,7 @@ export class ParallelWritable extends Writable {
       callback()
       await this._writeAsync(chunk, encoding)
     })
-      .catch((err) => callback(err))
+      .catch((err) => this.emit('error', err))
   }
 
   public _writev(chunks: Array<{ chunk: any, encoding: string }>, callback: (err?: any) => void) {
