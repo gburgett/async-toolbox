@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { promisify, TaskCB } from './promisify'
 
 export interface SemaphoreConfig {
+  // The maximum number of simultaneous invocations of a task
   tokens: number
 }
 
@@ -82,6 +83,21 @@ export class Semaphore extends EventEmitter {
    */
   public isEmpty(): boolean {
     return this.inflight.length == 0 && this.queue.length == 0
+  }
+
+  /**
+   * Wraps the given function inside a synchronization wrapper, which locks the
+   * semaphore around every invocation of the function.
+   * @param fn
+   */
+  public synchronize<Fn extends (...args: any[]) => Promise<any>>(fn: Fn): Fn {
+    const semaphore = this
+    return function(...args: any[]) {
+      const self = this
+      return semaphore.lock(() =>
+        fn.apply(self, args),
+      )
+    } as Fn
   }
 
   /**

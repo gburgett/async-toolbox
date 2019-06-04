@@ -237,3 +237,26 @@ test('can downgrade a writeLock to a readLock', async (t) => {
   })
 
 })
+
+test('synchronize sets this obj', async (t) => {
+  class SomeClass {
+    public async foo(...args: any[]) {
+      return [this, ...args]
+    }
+  }
+
+  const uut = new SomeClass()
+  const instance = new Semaphore()
+
+  uut.foo = instance.synchronize(uut.foo)
+
+  // act
+  const result = await uut.foo(1, 2, 3)
+  const result2 = await uut.foo.call('otherThis')
+
+  // assert
+  t.is(result[0], uut)
+  t.is(result[2], 2)
+  t.is(result[3], 3)
+  t.is(result2[0], 'otherThis')
+})

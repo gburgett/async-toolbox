@@ -17,6 +17,7 @@
   "repository": "https://github.com/gburgett/async-toolbox",
   "scripts": {
     "lint": "tslint 'src/**/*.ts'",
+    "fix": "tslint 'src/**/*.ts' --fix",
     "test": "npm run clean && tsc --project tsconfig.test.json && nyc ava 'src/**/*.test.js'",
     "test-watch": "ava --watch",
     "coverage": "npm run test && nyc report --reporter=html && open coverage/index.html",
