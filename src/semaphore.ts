@@ -71,7 +71,7 @@ export class Semaphore extends EventEmitter {
    */
   public stats(): Readonly<Stats> {
     return {
-      inflight: this.inflight.length,
+      inflight: count(this.inflight, (task) => task.meta && task.meta.virtual ? 0 : 1),
       queueSize: this.queue.length,
       availableTokens: this.config.tokens - this.inflightTokens,
     }
@@ -157,6 +157,9 @@ export class Semaphore extends EventEmitter {
     if (task.state != 'initialized' && task.state != 'uninitialized') {
       throw new Error(`Cannot enqueue a previously enqueued task! ${task}`)
     }
+    if (task.tokens <= 0) {
+      throw new Error(`Cannot enqueue a task with no tokens! ${task}`)
+    }
 
     if (task.state == 'initialized' &&
         this.queue.length == 0 &&
@@ -216,7 +219,7 @@ export class Semaphore extends EventEmitter {
   private _acquireTokens(tokens: number, priority?: boolean): Promise<number> {
     const task: Task<number> = {
       state: 'uninitialized',
-      meta: { from: '_acquireTokens' },
+      meta: { from: '_acquireTokens', virtual: true },
       tokens,
     }
     this._enqueue(task, priority)
@@ -321,4 +324,12 @@ export class Semaphore extends EventEmitter {
       return new Semaphore.ReadLockImpl(this.task, this.semaphore)
     }
   }
+}
+
+function count<T>(arr: T[], fn: (item: T) => number): number {
+  let c = 0
+  for (const item of arr) {
+    c += fn(item)
+  }
+  return c
 }
