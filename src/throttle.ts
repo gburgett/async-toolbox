@@ -38,7 +38,7 @@ export function throttle<T>(fn: () => Promise<T>, period = 1000): () => Promise<
       return invokeNow()
     }
 
-    function invokeNow() {
+    async function invokeNow() {
       // set the throttling timeout
       timeout = wait(period)
         .then(() => { timeout = undefined })
