@@ -6,41 +6,48 @@ interface InternalAsyncState {
   } | undefined
 }
 
-function readAsync(this: Readable & InternalAsyncState, size?: number): Promise<any> {
-  if (this._asyncReadableState === undefined) {
-    this._asyncReadableState = {
+/**
+ * Reads a chunk from the current write stream, returning a promise that completes
+ * when the chunk has actually been read.
+ *
+ * This function respects the 'readable' event of the stream.  If the stream is currently
+ * waiting for data, the function will queue the read until the readable event is fired.
+ */
+export function readAsync(stream: Readable & InternalAsyncState, size?: number): Promise<any> {
+  if (stream._asyncReadableState === undefined) {
+    stream._asyncReadableState = {
       readablePromise: null,
     }
   }
 
   return new Promise<any>((resolve, reject) => {
-    if (this.readable) {
+    if (stream.readable) {
       try {
-        resolve(this.read(size))
+        resolve(stream.read(size))
       } catch (e) {
         reject(e)
       }
     } else {
-      if (!this._asyncReadableState!.readablePromise) {
-        this._asyncReadableState!.readablePromise = new Promise<void>((rpResolve, rpErr) => {
+      if (!stream._asyncReadableState!.readablePromise) {
+        stream._asyncReadableState!.readablePromise = new Promise<void>((rpResolve, rpErr) => {
           const resolved = false
-          this.once('readable', () => {
+          stream.once('readable', () => {
             if (resolved) { return }
-            this._asyncReadableState!.readablePromise = null
+            stream._asyncReadableState!.readablePromise = null
             rpResolve()
           })
-          this.once('error', (err) => {
+          stream.once('error', (err) => {
             if (resolved) { return }
-            this._asyncReadableState!.readablePromise = null
+            stream._asyncReadableState!.readablePromise = null
             rpErr(err)
           })
         })
       }
 
       // await recursive
-      this._asyncReadableState!.readablePromise!.then(
+      stream._asyncReadableState!.readablePromise!.then(
         () =>
-          this.readAsync(size)
+          stream.readAsync(size)
             .then(resolve)
             .catch(reject),
         (err) => reject(err),
@@ -72,5 +79,9 @@ declare module 'stream' {
     readAsync(size?: number): Promise<any>
   }
 }
-Readable.prototype.readAsync = readAsync
-Duplex.prototype.readAsync = readAsync
+Readable.prototype.readAsync = function(size) {
+  return readAsync(this, size)
+}
+Duplex.prototype.readAsync = function(size) {
+  return readAsync(this, size)
+}

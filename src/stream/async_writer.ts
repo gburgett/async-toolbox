@@ -7,14 +7,27 @@ interface InternalAsyncState {
   } | undefined
 }
 
-function writeAsync(this: Writable & InternalAsyncState, chunk: any, encoding?: string): Promise<void> {
-  return _awaitDraining.call(this, (cb: (err?: any) => void) => this.write(chunk, encoding, cb))
+/**
+ * Writes a chunk to the current write stream, returning a promise that completes
+ * when the chunk has actually been written.
+ *
+ * This function respects the 'drain' event of the stream.  If the stream is currently
+ * full, the function will queue the write until the drain event is fired.
+ * @param chunk The chunk to write
+ * @param encoding The encoding of the chunk
+ */
+export function writeAsync(stream: Writable & InternalAsyncState, chunk: any, encoding?: string): Promise<void> {
+  return _awaitDraining(stream, (cb: (err?: any) => void) => stream.write(chunk, encoding, cb))
 }
 
-function endAsync(this: Writable & InternalAsyncState): Promise<void> {
-  return _awaitDraining.call(this, (cb: (err?: any) => void) => {
-    this.once('error', cb)
-    this.end(cb)
+/**
+ * Ends the stream, returning a promise that completes when the stream is finished
+ * (i.e. the end callback has returned)
+ */
+export function endAsync(stream: Writable & InternalAsyncState): Promise<void> {
+  return _awaitDraining(stream, (cb: (err?: any) => void) => {
+    stream.once('error', cb)
+    stream.end(cb)
   })
 }
 
@@ -27,11 +40,14 @@ function _initAsyncWritableState(this: Writable & InternalAsyncState): void {
   }
 }
 
-function _awaitDraining(this: Writable & InternalAsyncState, action: (cb: (err?: any) => void) => void): Promise<void> {
-  _initAsyncWritableState.call(this)
+function _awaitDraining(
+  stream: Writable & InternalAsyncState,
+  action: (cb: (err?: any) => void) => void,
+): Promise<void> {
+  _initAsyncWritableState.call(stream)
 
   return new Promise<void>((resolve, reject) => {
-    if (this._asyncWrtiableState!.draining) {
+    if (stream._asyncWrtiableState!.draining) {
       action((err) => {
         if (err) {
           reject(err)
@@ -40,20 +56,20 @@ function _awaitDraining(this: Writable & InternalAsyncState, action: (cb: (err?:
         }
       })
     } else {
-      if (!this._asyncWrtiableState!.drainPromise) {
-        this._asyncWrtiableState!.drainPromise = new Promise<void>((dpResolve) => {
-          this.once('drain', () => {
-            this._asyncWrtiableState!.drainPromise = null
-            this._asyncWrtiableState!.draining = true
+      if (!stream._asyncWrtiableState!.drainPromise) {
+        stream._asyncWrtiableState!.drainPromise = new Promise<void>((dpResolve) => {
+          stream.once('drain', () => {
+            stream._asyncWrtiableState!.drainPromise = null
+            stream._asyncWrtiableState!.draining = true
             dpResolve()
           })
         })
       }
 
       // await recursive
-      this._asyncWrtiableState!.drainPromise!.then(
+      stream._asyncWrtiableState!.drainPromise!.then(
         () =>
-          _awaitDraining.call(this, action)
+          _awaitDraining.call(stream, action)
             .then(resolve, reject),
         (err) => reject(err),
       )
@@ -101,7 +117,15 @@ declare module 'stream' {
   }
 }
 
-Writable.prototype.writeAsync = writeAsync
-Duplex.prototype.writeAsync = writeAsync
-Writable.prototype.endAsync = endAsync
-Duplex.prototype.endAsync = endAsync
+Writable.prototype.writeAsync = function(chunk, encoding) {
+  return writeAsync(this, chunk, encoding)
+}
+Duplex.prototype.writeAsync = function(chunk, encoding) {
+  return writeAsync(this, chunk, encoding)
+}
+Writable.prototype.endAsync = function() {
+  return endAsync(this)
+}
+Duplex.prototype.endAsync = function() {
+  return endAsync(this)
+}
