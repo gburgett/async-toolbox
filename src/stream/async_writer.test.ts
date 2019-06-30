@@ -1,6 +1,7 @@
 import test from 'ava'
-
 import { Writable } from 'stream'
+
+import {waitUntil} from '../index'
 import './async_writer'
 
 // tslint:disable:no-unused-expression
@@ -8,6 +9,7 @@ import './async_writer'
 test('writes chunks to the stream', async (t) => {
   const chunks = [] as string[]
   const stream = new Writable({
+    highWaterMark: 1,
     write: (chunk, encoding, cb) => {
       chunks.push(chunk as string)
       setTimeout(() => cb(), 1)
@@ -22,22 +24,6 @@ test('writes chunks to the stream', async (t) => {
   t.deepEqual(chunks.map((c) => c.toString()), ['1', '2', '3'])
 })
 
-test('rejects the promise if write sends an error', async (t) => {
-  const stream = new Writable({
-    write: (chunk, encoding, cb) => {
-      setTimeout(() => cb(new Error('test err')), 1)
-      return true
-    },
-  })
-
-  let streamErr: Error | null = null
-  stream.on('error', (e) => streamErr = e)
-
-  const err = await t.throwsAsync(() => stream.writeAsync('1'))
-  t.true(err.message == 'test err')
-  t.true(err == streamErr)
-})
-
 test('still writable after an error', async (t) => {
   const stream = new Writable({
     write: (chunk, encoding, cb) => {
@@ -50,14 +36,15 @@ test('still writable after an error', async (t) => {
     },
   })
 
-  let streamErr: Error | null = null
-  stream.on('error', (e) => streamErr = e)
+  const streamErrs: Error[] = []
+  stream.on('error', (e) => streamErrs.push(e))
 
-  const err = await t.throwsAsync(() => stream.writeAsync('1'))
-  t.true(err.message == 'test err')
-  t.true(err == streamErr)
+  await stream.writeAsync('1')
+  await waitUntil(() => streamErrs.length == 1)
+  t.true(streamErrs[0].message == 'test err')
 
-  await t.notThrowsAsync(() => stream.writeAsync('2'))
+  await stream.writeAsync('2')
+  t.deepEqual(streamErrs.length, 1)
 })
 
 test('waits for the drain event if draining', async (t) => {

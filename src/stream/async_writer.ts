@@ -1,80 +1,83 @@
 import { Duplex, Writable } from 'stream'
 
 interface InternalAsyncState {
-  _asyncWrtiableState: {
+  _asyncWritableState: {
     draining: boolean
     drainPromise: Promise<void> | null,
-  } | undefined
+  }
 }
 
 /**
  * Writes a chunk to the current write stream, returning a promise that completes
- * when the chunk has actually been written.
+ * when the chunk is enqueued.
  *
  * This function respects the 'drain' event of the stream.  If the stream is currently
  * full, the function will queue the write until the drain event is fired.
  * @param chunk The chunk to write
  * @param encoding The encoding of the chunk
  */
-export function writeAsync(stream: Writable & InternalAsyncState, chunk: any, encoding?: string): Promise<void> {
-  return _awaitDraining(stream, (cb: (err?: any) => void) => stream.write(chunk, encoding, cb))
+export async function writeAsync(stream: Writable, chunk: any, encoding?: string): Promise<void> {
+  if (!_initAsyncWritableState(stream)) {
+    throw new Error(`_initAsyncWritableState returned false!`)
+  }
+
+  if (stream._asyncWritableState.draining) {
+    stream._asyncWritableState.draining = stream.write(chunk, encoding)
+  } else {
+    await _awaitDraining(stream)
+    return stream.writeAsync(chunk, encoding)
+  }
 }
 
 /**
  * Ends the stream, returning a promise that completes when the stream is finished
  * (i.e. the end callback has returned)
  */
-export function endAsync(stream: Writable & InternalAsyncState): Promise<void> {
-  return _awaitDraining(stream, (cb: (err?: any) => void) => {
-    stream.once('error', cb)
-    stream.end(cb)
-  })
+export async function endAsync(stream: Writable): Promise<void> {
+  if (!_initAsyncWritableState(stream)) {
+    throw new Error(`_initAsyncWritableState returned false!`)
+  }
+
+  if (stream._asyncWritableState.draining) {
+    return new Promise<void>((resolve, reject) => {
+      stream.once('error', (err: any) => reject(err))
+      stream.end(() => resolve())
+    })
+  } else {
+    await _awaitDraining(stream)
+    return stream.endAsync()
+  }
 }
 
-function _initAsyncWritableState(this: Writable & InternalAsyncState): void {
-  if (this._asyncWrtiableState === undefined) {
-    this._asyncWrtiableState = {
+function _initAsyncWritableState(
+  stream: Writable & Partial<InternalAsyncState>,
+): stream is Writable & InternalAsyncState {
+  if (!stream._asyncWritableState) {
+    stream._asyncWritableState = {
       draining: true,
       drainPromise: null,
     }
   }
+  return true
 }
 
 function _awaitDraining(
   stream: Writable & InternalAsyncState,
-  action: (cb: (err?: any) => void) => void,
 ): Promise<void> {
-  _initAsyncWritableState.call(stream)
-
-  return new Promise<void>((resolve, reject) => {
-    if (stream._asyncWrtiableState!.draining) {
-      action((err) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve()
-        }
-      })
-    } else {
-      if (!stream._asyncWrtiableState!.drainPromise) {
-        stream._asyncWrtiableState!.drainPromise = new Promise<void>((dpResolve) => {
+    return new Promise<void>((resolve, reject) => {
+      if (!stream._asyncWritableState.drainPromise) {
+        stream._asyncWritableState.drainPromise = new Promise<void>((dpResolve) => {
           stream.once('drain', () => {
-            stream._asyncWrtiableState!.drainPromise = null
-            stream._asyncWrtiableState!.draining = true
+            stream._asyncWritableState!.drainPromise = null
+            stream._asyncWritableState!.draining = true
             dpResolve()
           })
         })
       }
 
       // await recursive
-      stream._asyncWrtiableState!.drainPromise!.then(
-        () =>
-          _awaitDraining.call(stream, action)
-            .then(resolve, reject),
-        (err) => reject(err),
-      )
-    }
-  })
+      stream._asyncWritableState.drainPromise.then(resolve, reject)
+    })
 }
 
 declare module 'stream' {
@@ -88,13 +91,13 @@ declare module 'stream' {
      * @param chunk The chunk to write
      * @param encoding The encoding of the chunk
      */
-    writeAsync(chunk: any, encoding?: string): Promise<void>
+    writeAsync(this: Writable, chunk: any, encoding?: string): Promise<void>
 
     /**
      * Ends the stream, returning a promise that completes when the stream is finished
      * (i.e. the end callback has returned)
      */
-    endAsync(): Promise<void>
+    endAsync(this: Writable): Promise<void>
   }
 
   interface Duplex {
@@ -107,13 +110,13 @@ declare module 'stream' {
      * @param chunk The chunk to write
      * @param encoding The encoding of the chunk
      */
-    writeAsync(chunk: any, encoding?: string): Promise<void>
+    writeAsync(this: Duplex, chunk: any, encoding?: string): Promise<void>
 
     /**
      * Ends the stream, returning a promise that completes when the stream is finished
      * (i.e. the end callback has returned)
      */
-    endAsync(): Promise<void>
+    endAsync(this: Duplex): Promise<void>
   }
 }
 
