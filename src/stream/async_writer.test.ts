@@ -110,6 +110,33 @@ test('recursively writes the chunk after drain event', async (t) => {
   t.deepEqual(chunks.map((c) => c.toString()), ['1', '2', '3'])
 })
 
+test('can resume after draining', async (t) => {
+  const chunks = [] as string[]
+  const callbacks = [] as Array<(error?: Error) => void>
+  const stream = new Writable({
+    highWaterMark: 0,
+    write: (chunk, encoding, cb) => {
+      chunks.push(chunk as string)
+      callbacks.push(cb)
+      return false
+    },
+  })
+
+  const p1 = stream.writeAsync('1')
+  await p1
+
+  // finish write '1' triggering drain event
+  callbacks.shift()!()
+  await wait(1)
+
+  const p2 = stream.writeAsync('2')
+  await p2
+  t.deepEqual(chunks.map((c) => c.toString()), ['1', '2'])
+
+  // finish write '2'
+  callbacks.shift()!()
+})
+
 function wait(ms = 1): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(() => resolve(), ms)

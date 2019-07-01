@@ -23,6 +23,10 @@ export async function writeAsync(stream: Writable, chunk: any, encoding?: string
 
   if (stream._asyncWritableState.draining) {
     stream._asyncWritableState.draining = stream.write(chunk, encoding)
+    if (!stream._asyncWritableState.draining) {
+      // ensure a drain listener exists to reset the draining state
+      _awaitDraining(stream)
+    }
   } else {
     await _awaitDraining(stream)
     return stream.writeAsync(chunk, encoding)
