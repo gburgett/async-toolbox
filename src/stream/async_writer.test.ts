@@ -94,9 +94,11 @@ test('recursively writes the chunk after drain event', async (t) => {
   // finish write '1'
   callbacks.shift()!()
   await p1
+  await waitUntil(() => chunks.length == 2)
   t.deepEqual(chunks.map((c) => c.toString()), ['1', '2'])
 
   // finish write '2'
+  await waitUntil(() => callbacks.length == 1)
   callbacks.shift()!()
   await p2
 
@@ -104,6 +106,7 @@ test('recursively writes the chunk after drain event', async (t) => {
   t.falsy(p3err)
 
   // finish write '3'
+  await waitUntil(() => callbacks.length == 1)
   callbacks.shift()!()
   await p3
 
