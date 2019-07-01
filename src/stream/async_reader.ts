@@ -45,13 +45,13 @@ export function readAsync(stream: Readable & InternalAsyncState, size?: number):
       }
 
       // await recursive
-      stream._asyncReadableState!.readablePromise!.then(
-        () =>
-          stream.readAsync(size)
-            .then(resolve)
-            .catch(reject),
-        (err) => reject(err),
-      )
+      stream._asyncReadableState!.readablePromise =
+        stream._asyncReadableState!.readablePromise!.then(
+          () =>
+            stream.readAsync(size)
+              .then(resolve)
+              .catch(reject),
+        ).catch((err) => reject(err))
     }
   })
 }

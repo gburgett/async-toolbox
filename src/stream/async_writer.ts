@@ -68,7 +68,7 @@ function _initAsyncWritableState(
 function _awaitDraining(
   stream: Writable & InternalAsyncState,
 ): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve) => {
       if (!stream._asyncWritableState.drainPromise) {
         stream._asyncWritableState.drainPromise = new Promise<void>((dpResolve) => {
           stream.once('drain', () => {
@@ -80,7 +80,7 @@ function _awaitDraining(
       }
 
       // queue up drain awaiters in a promise chain
-      stream._asyncWritableState.drainPromise = stream._asyncWritableState.drainPromise.then(resolve).catch(reject)
+      stream._asyncWritableState.drainPromise = stream._asyncWritableState.drainPromise.then(resolve)
     })
 }
 

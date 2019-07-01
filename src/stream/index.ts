@@ -100,6 +100,7 @@ export interface Transform<T, U> extends TransformImpl {
   write(chunk: T, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
   writeAsync(chunk: T, encoding?: string): Promise<void>
   end(cb?: () => void): void
+  end(buffer: Buffer, cb?: () => void): void
   end(chunk: T, cb?: () => void): void
   end(chunk: T, encoding?: string, cb?: () => void): void
 }
