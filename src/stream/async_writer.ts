@@ -72,15 +72,15 @@ function _awaitDraining(
       if (!stream._asyncWritableState.drainPromise) {
         stream._asyncWritableState.drainPromise = new Promise<void>((dpResolve) => {
           stream.once('drain', () => {
-            stream._asyncWritableState!.drainPromise = null
-            stream._asyncWritableState!.draining = true
+            stream._asyncWritableState.drainPromise = null
+            stream._asyncWritableState.draining = true
             dpResolve()
           })
         })
       }
 
-      // await recursive
-      stream._asyncWritableState.drainPromise.then(resolve, reject)
+      // queue up drain awaiters in a promise chain
+      stream._asyncWritableState.drainPromise = stream._asyncWritableState.drainPromise.then(resolve).catch(reject)
     })
 }
 
