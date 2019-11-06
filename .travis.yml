@@ -2,6 +2,6 @@ language: node_js
 node_js:
   - node
 script:
-  - npm run test
-  - npm run coveralls
-  - npm run lint
+  - yarn run test
+  - yarn run coveralls
+  - yarn run lint
