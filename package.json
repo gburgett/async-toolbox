@@ -39,7 +39,7 @@
   "devDependencies": {
     "@types/node": "^10.12.18",
     "@types/request": "^2.48.1",
-    "ava": "^1.2.0",
+    "ava": "^2.4.0",
     "coveralls": "^3.0.2",
     "nyc": "^13.1.0",
     "request": "^2.88.0",
