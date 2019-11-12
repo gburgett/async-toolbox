@@ -18,7 +18,7 @@
   "scripts": {
     "lint": "tslint 'src/**/*.ts'",
     "fix": "tslint 'src/**/*.ts' --fix",
-    "test": "yarn run clean && tsc --project tsconfig.test.json && nyc ava 'src/**/*.test.js'",
+    "test": "yarn run clean && tsc --project tsconfig.test.json && nyc ava src/*.test.js src/**/*.test.js",
     "test-watch": "ava --watch",
     "coverage": "yarn run test && nyc report --reporter=html && open coverage/index.html",
     "coveralls": "nyc report --reporter=text-lcov | coveralls",
