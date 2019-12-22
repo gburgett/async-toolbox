@@ -13,9 +13,9 @@ export * from './paged_source'
  * @param entries The entries to be read out of the stream
  * @returns a readable stream which provides the entries in sequence.
  */
-export function toReadable<T>(entries: T[]): Readable<T> {
+export function toReadable<T>(entries: T[]): Readable<T> & { remaining: number } {
   let index = 0
-  return new ReadableImpl({
+  return Object.assign(new ReadableImpl({
     objectMode: true,
     read(size) {
       if (index >= entries.length) {
@@ -27,8 +27,10 @@ export function toReadable<T>(entries: T[]): Readable<T> {
           break
         }
       }
+
+      (this as any).remaining = entries.length - index
     },
-  })
+  }), { remaining: entries.length })
 }
 
 /**

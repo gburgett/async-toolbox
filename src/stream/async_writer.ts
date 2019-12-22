@@ -16,7 +16,7 @@ interface InternalAsyncState {
  * @param chunk The chunk to write
  * @param encoding The encoding of the chunk
  */
-export async function writeAsync(stream: Writable, chunk: any, encoding?: string): Promise<void> {
+export async function writeAsync(stream: NodeJS.WritableStream, chunk: any, encoding?: string): Promise<void> {
   if (!_initAsyncWritableState(stream)) {
     throw new Error(`_initAsyncWritableState returned false!`)
   }
@@ -29,7 +29,7 @@ export async function writeAsync(stream: Writable, chunk: any, encoding?: string
     }
   } else {
     await _awaitDraining(stream)
-    return stream.writeAsync(chunk, encoding)
+    return writeAsync(stream, chunk, encoding)
   }
 }
 
@@ -54,8 +54,8 @@ export async function endAsync(stream: Writable): Promise<void> {
 }
 
 function _initAsyncWritableState(
-  stream: Writable & Partial<InternalAsyncState>,
-): stream is Writable & InternalAsyncState {
+  stream: NodeJS.WritableStream & Partial<InternalAsyncState>,
+): stream is NodeJS.WritableStream & InternalAsyncState {
   if (!stream._asyncWritableState) {
     stream._asyncWritableState = {
       draining: true,
@@ -66,7 +66,7 @@ function _initAsyncWritableState(
 }
 
 function _awaitDraining(
-  stream: Writable & InternalAsyncState,
+  stream: NodeJS.WritableStream & InternalAsyncState,
 ): Promise<void> {
     return new Promise<void>((resolve) => {
       if (!stream._asyncWritableState.drainPromise) {

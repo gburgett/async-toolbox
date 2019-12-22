@@ -37,10 +37,12 @@
     "limiter": "^1.1.4"
   },
   "devDependencies": {
+    "@types/fs-extra": "^8.0.1",
     "@types/node": "^10.12.18",
     "@types/request": "^2.48.1",
     "ava": "^2.4.0",
     "coveralls": "^3.0.2",
+    "fs-extra": "^8.1.0",
     "nyc": "^13.1.0",
     "request": "^2.88.0",
     "ts-node": "^8.0.2",
