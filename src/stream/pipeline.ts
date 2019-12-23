@@ -1,5 +1,7 @@
 import { Duplex, DuplexOptions, PassThrough } from 'stream'
+import { present } from '..'
 import { writeAsync } from './async_writer'
+import { StreamProgress } from './streamProgress'
 
 interface RunOptions {
   progress: boolean
@@ -41,13 +43,21 @@ export class Pipeline extends Duplex {
     output?: NodeJS.WritableStream,
     options?: Partial<RunOptions>,
   ): Promise<void> {
+    const opts = {
+      progress: false,
+      ...options,
+    }
     return new Promise<void>((resolve, reject) => {
+      const progressBar =
+        opts.progress && new StreamProgress([input, ...this.pipeline, output].filter(present)).start()
+
       let ended = false
       const end = () => {
         if (ended) {
           return
         }
         ended = true
+        if (progressBar) { progressBar.end() }
         resolve()
       }
 
@@ -174,6 +184,3 @@ export class Pipeline extends Duplex {
     this.push(null)
   }
 }
-
-type PromiseOnFulfilled<TResult1 = any> = ((value: void) => TResult1 | PromiseLike<TResult1>) | null | undefined
-type PromiseOnRejected<TResult = any> = ((reason: any) => TResult | PromiseLike<TResult>) | null | undefined

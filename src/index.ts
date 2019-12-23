@@ -96,3 +96,20 @@ export class TimeoutError extends Error {
     this.name = 'TimeoutError'
   }
 }
+
+/**
+ * Equivalent to Ruby's "present?" method, with Typescript niceties.
+ * @example
+ *   const a: Array<string | undefined | null> = ['', undefined, null, 'a', 'b']
+ *   const b: string[] = a.filter(present) // ['a', 'b']
+ * @param value
+ */
+export function present<T>(value: T | null | undefined | false): value is T {
+  if (typeof value == 'string') {
+    return value && /\S/.test(value)
+  }
+  if (typeof value == 'number') {
+    return value != 0
+  }
+  return !!value
+}
