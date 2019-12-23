@@ -1,6 +1,4 @@
-import { Stream } from 'stream'
-
-export function debugStreams(streams: Stream[], logger: Logger = console): NodeJS.Timeout {
+export function debugStreams(streams: NodeJS.ReadableStream[], logger: Logger = console): NodeJS.Timeout {
   const states: any[] = []
 
   streams.forEach((stream) => {
@@ -8,6 +6,11 @@ export function debugStreams(streams: Stream[], logger: Logger = console): NodeJ
     states.push({ flowing: false, ended: false })
     stream.on('error', (err: any) => {
       logger.error(`${name}: ${err}`)
+    })
+
+    const evts = ['close', 'end']
+    evts.forEach((evt: string) => {
+      stream.on(evt, (...args: []) => logger.debug(name, evt.toUpperCase(), ...args))
     })
   })
 

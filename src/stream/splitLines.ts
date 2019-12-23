@@ -28,12 +28,15 @@ export class SplitLines extends Transform {
       return
     }
 
-    const lines = chunk.split('\n')
     // flush all but the last line of the chunk - it may not yet be a complete line
-    this.buffer.push(lines.slice(0, lines.length - 1).join('\n'))
+    const index = chunk.lastIndexOf('\n')
+    this.buffer.push(chunk.slice(0, index + 1))
+    const lastLine = chunk.slice(index + 1)
     this._internalFlush(() => {
       // keep the last line of the chunk
-      this.buffer.push(lines[lines.length - 1])
+      if (lastLine.length > 0) {
+        this.buffer.push(lastLine)
+      }
       cb()
     })
   }
@@ -42,13 +45,25 @@ export class SplitLines extends Transform {
     this._internalFlush(cb)
   }
 
-  private _internalFlush(cb: () => void) {
-    this.buffer.join('').split('\n').forEach((line) => {
-      this.linesWritten++
-      this.push(line + '\n')
-    })
+  private _internalFlush(cb: (err?: Error) => void) {
+    if (this.buffer.length == 0) {
+      cb()
+      return
+    }
+
+    const buf = this.buffer.join('')
+    // the buffer ends in a "\n" - we don't want that to be part of the split
+    const lines = buf.replace(/\n$/, '').split('\n')
     this.buffer = []
-    cb()
+    try {
+      lines.forEach((line, i) => {
+        this.linesWritten++
+        this.push(line)
+      })
+      cb()
+    } catch (ex) {
+      cb(ex)
+    }
   }
 }
 
@@ -72,10 +87,13 @@ export class CombineLines extends Transform {
       chunk = chunk.toString()
     }
 
-    this.push(Buffer.from(chunk))
-    this.push(Buffer.from('\n'))
-    this.lineCount++
-    cb()
+    try {
+      this.push(Buffer.from(chunk))
+      this.push(Buffer.from('\n'))
+      this.lineCount++
+      cb()
+    } catch (ex) {
+      cb(ex)
+    }
   }
-
 }

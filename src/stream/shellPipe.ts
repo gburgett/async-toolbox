@@ -1,5 +1,5 @@
 import * as child_process from 'child_process'
-import { Duplex, DuplexOptions } from 'stream'
+import { Duplex, DuplexOptions, PassThrough, Readable, Writable } from 'stream'
 
 import {writeAsync} from './async_writer'
 
@@ -27,16 +27,18 @@ export class ShellPipe extends Duplex {
   public bytesRead: number = 0
   public linesWritten: number = 0
 
-  private stdout: NodeJS.ReadableStream | undefined
-  private stdin: NodeJS.WritableStream | undefined
-
   private _process: child_process.ChildProcess | undefined
+  private stdout: Readable | undefined
+  private stdin: Writable | undefined
+
+  private inProgressWrites: Array<(err: Error | null | undefined) => void> = []
 
   constructor(public readonly shellCommand: string, private readonly options?: ShellPipeOptions) {
     super(Object.assign({},
       options,
       {
         objectMode: false,
+        highWaterMark: 0,
       }))
 
     this.name = shellCommand
@@ -53,13 +55,21 @@ export class ShellPipe extends Duplex {
       return
     }
 
+    this.inProgressWrites.push(callback)
     try {
       await writeAsync(this.stdin, chunk, encoding)
       this.bytesWritten += chunk.length
       this.linesWritten += ((chunk.toString() as string).match(/\n/g) || []).length
-      callback(undefined)
+      if (this.inProgressWrites.indexOf(callback) >= 0) {
+        callback(undefined)
+      }
     } catch (ex) {
-      callback(ex)
+      if (this.inProgressWrites.indexOf(callback) >= 0) {
+        callback(ex)
+      }
+    } finally {
+      const idx = this.inProgressWrites.indexOf(callback)
+      this.inProgressWrites.splice(idx, 1)
     }
   }
 
@@ -123,10 +133,26 @@ export class ShellPipe extends Duplex {
       },
       this.options),
     )
-    this._process.on('close', (code: number) => {
+    this._process.on('exit', (code: number) => {
       if (code != 0) {
         this.emit('error', new Error(code.toString()))
       }
+      this.end()
+      const inProgress = this.inProgressWrites.slice()
+      this.inProgressWrites = []
+
+      const writeErr: any = new Error('Shell input closed')
+      writeErr.code = 'ERR_STREAM_WRITE_AFTER_END'
+      if (inProgress.length > 0) {
+        this.emit('error', writeErr)
+      }
+      inProgress.forEach((cb) => {
+        try {
+          cb(undefined)
+        } catch (ex) {
+          // suppress
+        }
+      })
     })
 
     if (this._process.stdout) {
