@@ -1,5 +1,3 @@
-import chalk from 'chalk'
-
 import { present } from '..'
 
 interface StreamState {
@@ -28,6 +26,11 @@ export interface StreamProgressOptions {
    * Use a stream other than process.stderr
    */
   logStream: NodeJS.WritableStream
+
+  /**
+   * Use the "Chalk" library to colorize the output using ansi codes
+   */
+  color: boolean
 }
 
 export class StreamProgress {
@@ -37,13 +40,17 @@ export class StreamProgress {
   private _interval: NodeJS.Timeout | undefined
   private time: number = 0
 
+  private _chalk: typeof fakeChalk
+
   constructor(
     private readonly pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>,
     options?: Partial<StreamProgressOptions>,
     ) {
+    const logStream = (options && options.logStream) || process.stderr
     this.options = {
       spinner: dots,
-      logStream: process.stderr,
+      logStream,
+      color: ('isTTY' in logStream) && (logStream as any).isTTY,
       ...options,
     }
     this.state = pipeline.map(() => {
@@ -54,6 +61,12 @@ export class StreamProgress {
         done: false,
       }
     })
+
+    if (this.options.color) {
+      this._chalk = require('chalk')
+    } else {
+      this._chalk = fakeChalk
+    }
   }
 
   public start(): this {
@@ -106,7 +119,7 @@ export class StreamProgress {
         return
       }
 
-      const spinner = s.done ? '✓' : this.getFrame(i)
+      const spinner = s.done ? this._chalk.green('✓') : this._chalk.gray(this.getFrame(i))
       let count = s.count > 0 && s.count.toString()
       if (!count && s.bytes > 0) {
         count = `${(s.bytes / 1024).toFixed(2)}kb`
@@ -114,13 +127,13 @@ export class StreamProgress {
       if (!count && (stream as any).bytesWritten) {
         count = `${((stream as any).bytesWritten / 1024).toFixed(2)}kb`
       }
-      const status = s.status ? '  ' + s.status : ''
+      const status = s.status ? '  ' + this._chalk.gray(s.status) : ''
 
       let line = `${spinner}  ${name}: ${count || '    '}${status}`
       if ('columns' in logStream) {
         const columns = (logStream as any).columns - 4
         if (line.length > columns) {
-          line = line.slice(0, columns) + chalk.gray('...')
+          line = line.slice(0, columns) + this._chalk.gray('...')
         }
       }
       return line
@@ -165,4 +178,9 @@ const dots = {
     '⠇',
     '⠏',
   ],
+}
+
+const fakeChalk = {
+  green: (msg: string) => msg,
+  gray: (msg: string) => msg,
 }
