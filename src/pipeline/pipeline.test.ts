@@ -2,7 +2,7 @@ import test from 'ava'
 import * as fs from 'fs-extra'
 import * as os from 'os'
 import * as path from 'path'
-import { Transform } from 'stream'
+import { Transform, Writable } from 'stream'
 
 import { collect, toReadable } from '../stream'
 import { ShellPipe } from '../stream/shellPipe'
@@ -49,14 +49,21 @@ test('ends when output is closed before writing finishes', async (t) => {
     slice(0, 4),
     new CombineLines({highWaterMark: 1}),
   ])
-  await fs.mkdirp('tmp/shellPipe')
   const input = toReadable(new Array(10000).fill('abcdefghijklmnopqrstuvwxyz\n'))
-  const output = ShellPipe.spawn('head -n10 > tmp/shellPipe/pipeline_ends_when_output_closed.txt')
+
+  const chunks: any[] = []
+  const output = new Writable({
+    write(chunk, encoding, cb) {
+      chunks.push(chunk)
+      cb()
+    },
+  })
+  // close early
+  output.end()
 
   await pipe.run(input, output)
 
-  const contents = await fs.readFile('tmp/pipeline_ends_when_output_closed.txt')
-  t.deepEqual(contents.toString(), 'zyxw\n'.repeat(10))
+  t.deepEqual(chunks, [])
 })
 
 test('pipes lots of data through multiple ShellPipes', async (t) => {
