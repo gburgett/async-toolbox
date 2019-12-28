@@ -3,7 +3,11 @@ import { Duplex, Readable } from 'stream'
 interface InternalAsyncState {
   _asyncReadableState: {
     readablePromise: Promise<void> | null,
-  } | undefined
+    rpResolveOnEnd: null | (() => void)
+    readable: boolean,
+  }
+
+  readableEnded: boolean
 }
 
 /**
@@ -13,53 +17,69 @@ interface InternalAsyncState {
  * This function respects the 'readable' event of the stream.  If the stream is currently
  * waiting for data, the function will queue the read until the readable event is fired.
  */
-export function readAsync(stream: NodeJS.ReadableStream & InternalAsyncState, size?: number): Promise<any> {
-  if (stream._asyncReadableState === undefined) {
-    stream._asyncReadableState = {
-      readablePromise: null,
-    }
+export async function readAsync(stream: NodeJS.ReadableStream & InternalAsyncState, size?: number): Promise<any> {
+  if (!_initAsyncReadableState(stream)) {
+    throw new Error(`_initAsyncWritableState returned false!`)
   }
 
-  return new Promise<any>((resolve, reject) => {
-    // console.error('readable?', stream.readable)
-    if (stream.readable) {
-      try {
-        const data = stream.read(size)
-        if (data != null) {
-          resolve(data)
-          return
-        }
-      } catch (e) {
-        reject(e)
-        return
-      }
+  if (stream._asyncReadableState.readable) {
+    // read immediately
+    const chunk = stream.read(size)
+    if (chunk != null) {
+      return chunk
     }
 
-    if (!stream._asyncReadableState!.readablePromise) {
-      stream._asyncReadableState!.readablePromise = new Promise<void>((rpResolve, rpErr) => {
-        const resolved = false
-        stream.once('readable', () => {
-          if (resolved) { return }
-          stream._asyncReadableState!.readablePromise = null
-          rpResolve()
+    // no data
+    stream._asyncReadableState.readable = false
+  }
+
+  // wait for data to be available
+  return _awaitData(stream)
+}
+
+function _awaitData(
+  stream: NodeJS.ReadableStream & InternalAsyncState,
+): Promise<any> {
+  return new Promise<void>((resolve) => {
+    if (!stream._asyncReadableState.readablePromise) {
+      stream._asyncReadableState.readablePromise = new Promise<void>((rpResolve) => {
+        stream._asyncReadableState.rpResolveOnEnd = rpResolve
+
+        stream.once('data', (chunk) => {
+          stream._asyncReadableState.readablePromise = null
+          stream._asyncReadableState.rpResolveOnEnd = null
+          stream._asyncReadableState.readable = true
+          stream.pause()
+          rpResolve(chunk)
         })
-        stream.once('error', (err) => {
-          if (resolved) { return }
-          stream._asyncReadableState!.readablePromise = null
-          rpErr(err)
-        })
+        stream.resume()
       })
     }
 
-    // await recursive
-    stream._asyncReadableState!.readablePromise =
-      stream._asyncReadableState!.readablePromise!.then(
-        () =>
-          readAsync(stream, size)
-            .then(resolve)
-            .catch(reject),
-      ).catch((err) => reject(err))
+    // queue up drain awaiters in a promise chain
+    stream._asyncReadableState.readablePromise = stream._asyncReadableState.readablePromise.then(resolve)
   })
+}
+
+function _initAsyncReadableState(
+  stream: NodeJS.ReadableStream & Partial<InternalAsyncState>,
+): stream is NodeJS.ReadableStream & InternalAsyncState {
+  if (!stream._asyncReadableState) {
+    stream._asyncReadableState = {
+      readablePromise: null,
+      rpResolveOnEnd: null,
+      readable: true,
+    }
+
+    stream.once('end', () => {
+      if (stream._asyncReadableState &&
+          stream._asyncReadableState.rpResolveOnEnd) {
+        // resolve the waiting async readers with "null"
+        stream._asyncReadableState.rpResolveOnEnd()
+      }
+    })
+  }
+  return true
 }
 
 declare module 'stream' {

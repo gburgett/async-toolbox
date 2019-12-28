@@ -1,6 +1,5 @@
 import test from 'ava'
 import * as fs from 'fs-extra'
-import * as os from 'os'
 import * as path from 'path'
 import { Transform, Writable } from 'stream'
 
@@ -67,7 +66,7 @@ test('ends when output is closed before writing finishes', async (t) => {
 })
 
 test('pipes lots of data through multiple ShellPipes', async (t) => {
-  const dir = path.join(os.tmpdir(), 'tmp/shellPipe')
+  const dir = 'tmp/pipeline'
   await fs.mkdirp(dir)
   const outfile = path.join(dir, 'pipes_lots_of_data.txt')
   const output = fs.createWriteStream(outfile)
