@@ -78,10 +78,11 @@ export class ShellPipe extends Duplex {
       cb(new Error(`Command not yet spawned: '${this.shellCommand}'`))
       return
     }
-
-    this._process.stdin.end(() => {
+    this._process.once('exit', () => {
       cb()
     })
+
+    this._process.stdin.end()
   }
 
   public _read(size?: number) {

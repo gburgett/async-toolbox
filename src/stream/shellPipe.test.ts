@@ -1,5 +1,6 @@
 import test from 'ava'
 
+import { Writable } from 'stream'
 import { collect, toReadable } from '.'
 import { wait } from '..'
 import '../events'
@@ -59,4 +60,14 @@ test('buffers stdin', async (t) => {
   await pipe.readAsync(20)
   await wait(1000)
   t.true(source.remaining > 0)
+})
+
+test('handles error code from invoked process', async (t) => {
+  const pipe = new ShellPipe('xargs curl -v').spawn()
+
+  await t.throwsAsync(async () => {
+    // curl: (3) Bad URL
+    await pipe.writeAsync('https://')
+    await pipe.endAsync()
+  })
 })
