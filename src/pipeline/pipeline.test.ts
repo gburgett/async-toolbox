@@ -63,7 +63,7 @@ test('ends when output is closed before writing finishes', async (t) => {
 test('pipes lots of data through multiple ShellPipes', async (t) => {
   const dir = path.join(os.tmpdir(), 'tmp/shellPipe')
   await fs.mkdirp(dir)
-  const outfile = 'out.txt'
+  const outfile = path.join(dir, 'out.txt')
   const output = fs.createWriteStream(outfile)
 
   const pipeline = [
