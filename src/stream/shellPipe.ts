@@ -1,5 +1,5 @@
 import * as child_process from 'child_process'
-import { Duplex, DuplexOptions, PassThrough, Readable, Writable } from 'stream'
+import { Duplex, DuplexOptions, Readable, Writable } from 'stream'
 
 import {writeAsync} from './async_writer'
 

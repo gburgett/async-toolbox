@@ -4,7 +4,6 @@ import * as os from 'os'
 import * as path from 'path'
 import { Transform } from 'stream'
 
-import { onceAsync } from '../events'
 import { collect, toReadable } from '../stream'
 import { ShellPipe } from '../stream/shellPipe'
 import { CombineLines, SplitLines } from '../stream/splitLines'
@@ -50,9 +49,9 @@ test('ends when output is closed before writing finishes', async (t) => {
     slice(0, 4),
     new CombineLines({highWaterMark: 1}),
   ])
-  await fs.mkdirp('tmp')
+  await fs.mkdirp('tmp/shellPipe')
   const input = toReadable(new Array(10000).fill('abcdefghijklmnopqrstuvwxyz\n'))
-  const output = ShellPipe.spawn('head -n10 > tmp/pipeline_ends_when_output_closed.txt')
+  const output = ShellPipe.spawn('head -n10 > tmp/shellPipe/pipeline_ends_when_output_closed.txt')
 
   await pipe.run(input, output)
 
@@ -63,10 +62,10 @@ test('ends when output is closed before writing finishes', async (t) => {
 test('pipes lots of data through multiple ShellPipes', async (t) => {
   const dir = path.join(os.tmpdir(), 'tmp/shellPipe')
   await fs.mkdirp(dir)
-  const outfile = path.join(dir, 'out.txt')
+  const outfile = path.join(dir, 'pipes_lots_of_data.txt')
   const output = fs.createWriteStream(outfile)
 
-  const pipeline = [
+  const pipeline = new Pipeline([
     ShellPipe.spawn('yes abcdefgh'),
     ShellPipe.spawn('rev'),
     new SplitLines(),
@@ -78,12 +77,10 @@ test('pipes lots of data through multiple ShellPipes', async (t) => {
     }),
     new CombineLines(),
     ShellPipe.spawn('head -n1000'),
-  ]
+  ])
 
-  const last = pipeline.reduce((a, b) => a.pipe(b))
-  last.pipe(output)
+  await pipeline.run(undefined, output)
 
-  await onceAsync(output, 'finish')
   const stat = await fs.stat(outfile)
   t.deepEqual(stat.size, 4 * 1000)
 })
