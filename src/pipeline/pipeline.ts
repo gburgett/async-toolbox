@@ -1,6 +1,6 @@
 import { Duplex, DuplexOptions, PassThrough } from 'stream'
 import { present } from '..'
-import { writeAsync } from './async_writer'
+import { writeAsync } from '../stream/async_writer'
 import { StreamProgress } from './streamProgress'
 
 interface RunOptions {

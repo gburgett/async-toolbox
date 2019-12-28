@@ -4,11 +4,11 @@ import * as os from 'os'
 import * as path from 'path'
 import { Transform } from 'stream'
 
-import { collect, toReadable } from '.'
 import { onceAsync } from '../events'
+import { collect, toReadable } from '../stream'
+import { ShellPipe } from '../stream/shellPipe'
+import { CombineLines, SplitLines } from '../stream/splitLines'
 import { Pipeline } from './pipeline'
-import { ShellPipe } from './shellPipe'
-import { CombineLines, SplitLines } from './splitLines'
 
 test('no pipeline becomes a passthrough', async (t) => {
   const pipe = new Pipeline([])
