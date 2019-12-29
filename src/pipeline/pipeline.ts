@@ -36,6 +36,10 @@ export class Pipeline extends Duplex {
     ]
     this.in = pipeline[0]
     this.out = pipeline[pipeline.length - 1]
+    if (!this.out.read) {
+      // JSONStream implements pipe but not read
+      this.pipeline.push(this.out = new PassThrough())
+    }
   }
 
   public run(

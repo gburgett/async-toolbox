@@ -1,5 +1,6 @@
 import test from 'ava'
 import * as fs from 'fs-extra'
+import { parse, stringify } from 'jsonstream'
 import * as path from 'path'
 import { Transform, Writable } from 'stream'
 
@@ -89,6 +90,24 @@ test('pipes lots of data through multiple ShellPipes', async (t) => {
 
   const stat = await fs.stat(outfile)
   t.deepEqual(stat.size, 4 * 1000)
+})
+
+test('works with badly behaved streams like JSONStream', async (t) => {
+  const pipeline = new Pipeline([
+    parse(null),
+    new Transform({
+      objectMode: true,
+      transform(chunk, encoding, cb) {
+        cb(undefined, { b: chunk.a })
+      },
+    }),
+    stringify(false),
+  ])
+
+  pipeline.write(JSON.stringify({ a: 1 }) + '\n')
+  pipeline.end()
+  const results = (await collect(pipeline)).join('')
+  t.deepEqual(results, '{"b":1}')
 })
 
 function rev() {
