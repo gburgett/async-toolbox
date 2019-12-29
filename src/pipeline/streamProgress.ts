@@ -6,6 +6,8 @@ interface StreamState {
   total: number | undefined
   done: boolean
   status?: string
+
+  child?: StreamProgress
 }
 
 interface Spinner {
@@ -25,12 +27,17 @@ export interface StreamProgressOptions {
   /**
    * Use a stream other than process.stderr
    */
-  logStream: NodeJS.WritableStream
+  logStream: NodeJS.WritableStream | null
 
   /**
    * Use the "Chalk" library to colorize the output using ansi codes
    */
   color: boolean
+
+  /**
+   * if you have a pipeline of pipelines, how deep to show progress
+   */
+  depth: number
 }
 
 export class StreamProgress {
@@ -51,14 +58,26 @@ export class StreamProgress {
       spinner: dots,
       logStream,
       color: ('isTTY' in logStream) && (logStream as any).isTTY,
+      depth: 1,
       ...options,
     }
-    this.state = pipeline.map(() => {
+
+    this.state = pipeline.map((stream) => {
+      const childPipeline = ('pipeline' in stream) && Array.isArray((stream as any).pipeline) ?
+        (stream as any).pipeline as Array<NodeJS.ReadableStream | NodeJS.WritableStream> :
+        undefined
       return {
         count: 0,
         bytes: 0,
         total: undefined,
         done: false,
+
+        child: childPipeline && this.options.depth > 0 ?
+          new StreamProgress(childPipeline, {
+            ...this.options,
+            logStream: undefined,
+            depth: this.options.depth - 1,
+          }).start() : undefined,
       }
     })
 
@@ -114,10 +133,11 @@ export class StreamProgress {
     }, 0)
   }
 
-  public render(end?: 'end') {
+  public format() {
     const { logStream } = this.options
 
-    const msg = this.state.map((s, i) => {
+    const msg = [] as string[]
+    this.state.forEach((s, i) => {
       const stream = this.pipeline[i]
 
       const name = ('name' in stream) ? (stream as any).name : stream.constructor.name
@@ -137,17 +157,34 @@ export class StreamProgress {
       const status = s.status ? '  ' + this._chalk.gray(s.status) : ''
 
       let line = `${spinner}  ${name}: ${count || '    '}${status}`
-      if ('columns' in logStream) {
+      if (logStream && 'columns' in logStream) {
         const columns = (logStream as any).columns - 4
         if (line.length > columns) {
           line = line.slice(0, columns) + this._chalk.gray('...')
         }
       }
-      return line
-    }).filter(present)
+
+      msg.push(line)
+      if (s.child) {
+        s.child.format().forEach((childLine) => {
+          msg.push('  ' + childLine)
+        })
+      }
+    })
+
+    return msg
+  }
+
+  public render(end?: 'end') {
+    const { logStream } = this.options
+    if (!logStream) {
+      return
+    }
 
     logStream.write(clearLine)
     logStream.write('\n')
+    const msg = this.format()
+
     msg.forEach((line) => {
       logStream.write(clearLine)
       logStream.write(' ')
