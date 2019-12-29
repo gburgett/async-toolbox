@@ -40,7 +40,7 @@ export class StreamProgress {
   private _interval: NodeJS.Timeout | undefined
   private time: number = 0
 
-  private _chalk: typeof fakeChalk
+  private readonly _chalk: typeof fakeChalk
 
   constructor(
     private readonly pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>,
@@ -63,8 +63,15 @@ export class StreamProgress {
     })
 
     if (this.options.color) {
-      this._chalk = require('chalk')
-    } else {
+      try {
+        this._chalk = require('chalk')
+      } catch (ex) {
+        if (options && options.color === true) {
+          throw new Error('"color: true" set on StreamProgress but "chalk" is not installed.\n' + ex.toString())
+        }
+      }
+    }
+    if (!this._chalk) {
       this._chalk = fakeChalk
     }
   }
