@@ -6,6 +6,8 @@ import './async_writer'
 export * from './parallel_transform'
 export * from './parallel_writable'
 export * from './paged_source'
+export * from './shellPipe'
+export * from './debugStreams'
 
 /**
  * Converts an array of chunks into a readable object stream which can be piped
