@@ -8,6 +8,7 @@ export * from './parallel_writable'
 export * from './paged_source'
 export * from './shellPipe'
 export * from './debugStreams'
+export * from './splitLines'
 
 /**
  * Converts an array of chunks into a readable object stream which can be piped
