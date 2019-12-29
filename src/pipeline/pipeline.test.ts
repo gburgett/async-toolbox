@@ -1,6 +1,6 @@
 import test from 'ava'
 import * as fs from 'fs-extra'
-import { parse, stringify } from 'jsonstream'
+import { parse, stringify } from 'JSONStream'
 import * as path from 'path'
 import { Transform, Writable } from 'stream'
 
