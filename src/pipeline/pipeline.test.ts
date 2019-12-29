@@ -110,6 +110,22 @@ test('works with badly behaved streams like JSONStream', async (t) => {
   t.deepEqual(results, '{"b":1}')
 })
 
+test('automatically figures out object mode', async (t) => {
+  const pipeline = new Pipeline([
+    new Transform({
+      objectMode: true,
+      transform(chunk, encoding, cb) {
+        cb(undefined, { b: chunk.a })
+      },
+    }),
+  ])
+
+  pipeline.write({ a: 1 })
+  pipeline.end()
+  const results = await collect(pipeline)
+  t.deepEqual(results, [{ b: 1 }])
+})
+
 function rev() {
   return new Transform({
     highWaterMark: 1,

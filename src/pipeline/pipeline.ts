@@ -10,36 +10,59 @@ interface RunOptions {
 export class Pipeline extends Duplex {
   public readonly pipeline: NodeJS.ReadWriteStream[]
 
-  public bytesWritten: number = 0
-  public bytesRead: number = 0
-  public linesWritten: number = 0
+  public bytesWritten: number
+  public bytesRead: number
+  public linesWritten: number
 
-  private _initialized = false
+  private _initialized: boolean
   private in: NodeJS.WritableStream
   private out: NodeJS.ReadableStream
-  private _ended = false
+  private _ended: boolean
 
   constructor(
     pipeline: NodeJS.ReadWriteStream[],
     opts?: DuplexOptions,
   ) {
-    super({
-      ...opts,
+    pipeline.forEach((stream) => {
+      if (!stream.readable) {
+        throw new Error(`Stream ${(stream as any).name || stream.constructor.name} is not readable`)
+      }
+      if (!stream.writable) {
+        throw new Error(`Stream ${(stream as any).name || stream.constructor.name} is not writable`)
+      }
     })
 
     if (pipeline.length == 0) {
       pipeline = [new PassThrough()]
     }
+    const input = pipeline[0]
+    let output = pipeline[pipeline.length - 1]
+
+    // try to guess whether we should be in object mode
+    const writableState = (input as any)._writableState
+    const writableObjectMode = writableState && writableState.objectMode
+    const readableState = (output as any)._readableState
+    const readableObjectMode = readableState && readableState.objectMode
+
+    if (!output.read) {
+      // JSONStream implements pipe but not read
+      pipeline.push(output = new PassThrough({
+        objectMode: readableObjectMode,
+        highWaterMark: readableObjectMode ? 1 : 1024,
+      }))
+    }
+
+    super({
+      writableObjectMode,
+      readableObjectMode,
+      ...opts,
+    })
 
     this.pipeline = [
       ...pipeline,
     ]
-    this.in = pipeline[0]
-    this.out = pipeline[pipeline.length - 1]
-    if (!this.out.read) {
-      // JSONStream implements pipe but not read
-      this.pipeline.push(this.out = new PassThrough())
-    }
+    this.in = input
+    this.out = output
   }
 
   public run(
@@ -167,19 +190,21 @@ export class Pipeline extends Duplex {
     })
   }
 
-  private _createErrorHandler = (a: NodeJS.ReadWriteStream, b: NodeJS.ReadWriteStream) => (err: any) => {
-    if (err.code == 'ERR_STREAM_WRITE_AFTER_END') {
-      // trying to write to the next stage of the pipeline when it's been closed.
-      // Just end this stream instead.
-      if ('destroy' in a) {
-        (a as any).destroy()
+  private _createErrorHandler(a: NodeJS.ReadWriteStream, b: NodeJS.ReadWriteStream): (err: any) => void {
+    return (err: any) => {
+      if (err.code == 'ERR_STREAM_WRITE_AFTER_END') {
+        // trying to write to the next stage of the pipeline when it's been closed.
+        // Just end this stream instead.
+        if ('destroy' in a) {
+          (a as any).destroy()
+        }
+      } else {
+        this.emit('error', err)
       }
-    } else {
-      this.emit('error', err)
     }
   }
 
-  private _end = () => {
+  private _end() {
     if (this._ended) {
       return
     }
