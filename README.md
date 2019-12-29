@@ -52,7 +52,10 @@ const pipeline = new Pipeline([
   new TransformsJsonObjects(),
   JSONStream.stringify(false)
 ])
-await pipeline.run(process.stdin, process.stdout, { progress: true })
+
+process.stdin
+  .pipe(pipeline)
+  .pipe(process.stdout)
 ```
 
 * Run a pipeline without any stdin or stdout

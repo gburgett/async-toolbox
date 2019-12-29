@@ -7,12 +7,14 @@ interface RunOptions {
   progress: boolean
 }
 
+/**
+ * A Pipeline wraps a list of streams up into one duplex stream.  The writable
+ * side of the duplex stream writes to the first stream in the pipeline, and
+ * the readable side of the pipeline reads from the last stream in the pipeline.
+ * Errors from any stream in the list are emitted from the pipeline.
+ */
 export class Pipeline extends Duplex {
   public readonly pipeline: NodeJS.ReadWriteStream[]
-
-  public bytesWritten: number
-  public bytesRead: number
-  public linesWritten: number
 
   private _initialized: boolean
   private in: NodeJS.WritableStream
@@ -127,8 +129,6 @@ export class Pipeline extends Duplex {
 
     try {
       await writeAsync(this.in, chunk, encoding)
-      this.bytesWritten += chunk.length
-      this.linesWritten += ((chunk.toString() as string).match(/\n/g) || []).length
       callback(undefined)
     } catch (ex) {
       callback(ex)
@@ -159,7 +159,6 @@ export class Pipeline extends Duplex {
       }
       if (size) { size -= chunk.length }
       this.push(chunk)
-      this.bytesRead += chunk.length
       pushed = true
     }
 
@@ -168,7 +167,6 @@ export class Pipeline extends Duplex {
     if (!pushed) {
       this.out.once('data', (ch) => {
         this.push(ch)
-        this.bytesRead += ch.length
         this.out!.pause()
       })
       this.out.resume()
