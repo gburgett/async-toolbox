@@ -190,7 +190,7 @@ export class Pipeline extends Duplex {
 
   private _createErrorHandler(a: NodeJS.ReadWriteStream, b: NodeJS.ReadWriteStream): (err: any) => void {
     return (err: any) => {
-      if (err.code == 'ERR_STREAM_WRITE_AFTER_END') {
+      if (err.code == 'ERR_STREAM_WRITE_AFTER_END' || err.code == 'ERR_STREAM_DESTROYED') {
         // trying to write to the next stage of the pipeline when it's been closed.
         // Just end this stream instead.
         if ('destroy' in a) {
