@@ -26,6 +26,10 @@ you can require as you desire.
     Accepts an action which either receives a callback or returns a promise,
     and awaits the appropriate thing.
 
+* `throttle`
+    Wraps an asynchronous function to prevent it from being executed more than
+    once in any given period.  Similar to [lodash throttle](https://lodash.com/docs/4.17.15#throttle) but for async functions.
+
 ## Pipeline
 
 `import { Pipeline, StreamProgress } from 'async-toolbox/pipeline'`

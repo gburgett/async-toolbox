@@ -1,5 +1,13 @@
 import { wait } from '.'
 
+/**
+ * Throttle an asynchronous function so it is only invoked once during the period,
+ * and never invoked a second time while a previous invocation has not yet completed.
+ * If the throttled function is called multiple times within the period, all those
+ * calls will receive the result of the next invocation.
+ * @param period The minimum time to wait since the last invocation before allowing
+ *               the wrapped function to be invoked again.
+ */
 export function throttle<T>(fn: () => Promise<T>, period = 1000): () => Promise<T> {
   let timeout: Promise<void> | undefined
   let inProgress: Promise<T> | undefined
