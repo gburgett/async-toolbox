@@ -9,6 +9,8 @@
     "events.d.ts",
     "list.js",
     "list.d.ts",
+    "pipeline.js",
+    "pipeline.d.ts",
     "request.js",
     "request.d.ts",
     "stream.js",
