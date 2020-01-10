@@ -21,6 +21,25 @@ export interface PipelineOptions {
  * side of the duplex stream writes to the first stream in the pipeline, and
  * the readable side of the pipeline reads from the last stream in the pipeline.
  * Errors from any stream in the list are emitted from the pipeline.
+ *
+ * If the first stream in the pipeline is not writable (i.e. a read only stream),
+ * then the pipeline's `writable` attribute will be false and writes will error.
+ *
+ * If the last stream in the pipeline is not readable, then the pipeline's `readable`
+ * attribute will be false and reads will error.
+ *
+ * All other streams in the pipeline must be duplex streams, as they will be piped
+ * to eachother.
+ *
+ * A pipeline starts in the 'paused' state.  It begins flowing when one of the
+ * following occurs:
+ *   1. Data is written to the pipeline using `write`
+ *   2. Data is read from the pipeline using `read`
+ *   3. An input stream is piped to the pipeline, or the pipeline is piped to an output stream.
+ *   4. The `run` function is called.
+ *
+ * If you simply create the pipeline and wait for the `finish` event without doing
+ * one of the above 4 things, the `finish` event will never be fired.
  */
 export class Pipeline extends Duplex {
   public readonly pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>
@@ -30,31 +49,29 @@ export class Pipeline extends Duplex {
   private out: NodeJS.ReadableStream | undefined
   private _ended: boolean
 
-  // tslint:disable: max-line-length
-  constructor(output: NodeJS.WritableStream, options?: PipelineOptions)
-  constructor(input: NodeJS.ReadableStream, output?: NodeJS.WritableStream, options?: PipelineOptions)
-  constructor(input: NodeJS.ReadableStream | NodeJS.ReadWriteStream, a: NodeJS.ReadWriteStream, output?: NodeJS.WritableStream, options?: PipelineOptions)
-  constructor(input: NodeJS.ReadableStream | NodeJS.ReadWriteStream, a: NodeJS.ReadWriteStream, b: NodeJS.ReadWriteStream, output?: NodeJS.WritableStream, options?: PipelineOptions)
-  constructor(input: NodeJS.ReadableStream | NodeJS.ReadWriteStream, a: NodeJS.ReadWriteStream, b: NodeJS.ReadWriteStream, c: NodeJS.ReadWriteStream, output?: NodeJS.WritableStream, options?: PipelineOptions)
-  constructor(input: NodeJS.ReadableStream | NodeJS.ReadWriteStream, a: NodeJS.ReadWriteStream, b: NodeJS.ReadWriteStream, c: NodeJS.ReadWriteStream, d: NodeJS.ReadWriteStream, output?: NodeJS.WritableStream, options?: PipelineOptions)
-  constructor(input: NodeJS.ReadableStream | NodeJS.ReadWriteStream, ...pipeline: NodeJS.ReadWriteStream[])
-  constructor(...pipeline: NodeJS.ReadWriteStream[])
-  /** Note: PipelineOptions must be the last in the list */
-  constructor(...args: Array<NodeJS.ReadableStream | NodeJS.WritableStream | PipelineOptions>)
-  // tslint:enable: max-line-length
+  // tslint:disable: max-line-length unified-signatures
+  constructor(options?: PipelineOptions)
+  /** Note: if a writable stream is given, it must be last in the list */
+  constructor(input?: NodeJS.ReadableStream | NodeJS.ReadWriteStream, ...pipeline: Array<NodeJS.ReadWriteStream | NodeJS.WritableStream>)
+  /** Note: if a writable stream is given, it must be last in the list */
+  constructor(options: PipelineOptions, input?: NodeJS.ReadableStream | NodeJS.ReadWriteStream, ...pipeline: Array<NodeJS.ReadWriteStream | NodeJS.WritableStream>)
+  // tslint:enable: max-line-length unified-signatures
 
-  constructor(...args: Array<NodeJS.ReadableStream | NodeJS.WritableStream | PipelineOptions | undefined>) {
+  constructor(
+    first: PipelineOptions | NodeJS.ReadableStream | NodeJS.WritableStream | undefined,
+    ...remainder: Array<NodeJS.ReadableStream | NodeJS.WritableStream | undefined>
+  ) {
     let pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>
     let opts: PipelineOptions = {}
-    if (args.length == 0) {
+    if (!first) {
       pipeline = [new PassThrough()]
     } else {
-      let last = args.pop()
-      if (last && !isWritableStream(last) && !isReadableStream(last)) {
-        opts = last
-        last = args.pop()
+      if (!isWritableStream(first) && !isReadableStream(first)) {
+        opts = first
+        pipeline = remainder.filter(present)
+      } else {
+        pipeline = [first, ...remainder].filter(present)
       }
-      pipeline = ([...args, last] as Array<NodeJS.ReadableStream | NodeJS.WritableStream | undefined>).filter(present)
     }
 
     const input = pipeline[0]
@@ -291,4 +308,8 @@ function isWritableStream(stream: any): stream is NodeJS.WritableStream {
 
 function isReadableStream(stream: any): stream is NodeJS.ReadableStream {
   return 'read' in stream && typeof stream.read == 'function'
+}
+
+function nameOfStream(stream: any): string {
+  return ('name' in stream) ? stream.name : stream.constructor.name
 }
