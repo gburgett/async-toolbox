@@ -1,4 +1,4 @@
-import { Duplex, DuplexOptions, PassThrough } from 'stream'
+import { Duplex, DuplexOptions, PassThrough, Writable } from 'stream'
 import { present } from '..'
 import { writeAsync } from '../stream/async_writer'
 import { StreamProgress } from './streamProgress'
@@ -43,6 +43,8 @@ export interface PipelineOptions {
  */
 export class Pipeline extends Duplex {
   public readonly pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>
+  public readonly readableObjectMode: boolean
+  public readonly writableObjectMode: boolean
 
   private _initialized: boolean
   private in: NodeJS.WritableStream | undefined
@@ -105,6 +107,8 @@ export class Pipeline extends Duplex {
       ...opts,
     })
 
+    this.readableObjectMode = (this as any)._readableState.objectMode
+    this.writableObjectMode = (this as any)._writableState.objectMode
     this.pipeline = [
       ...pipeline,
     ]
@@ -135,7 +139,7 @@ export class Pipeline extends Duplex {
   ): Promise<void> {
     const input: NodeJS.ReadableStream | undefined =
       i && isReadableStream(i) ? i : undefined
-    const output: NodeJS.WritableStream | undefined =
+    let output: NodeJS.WritableStream | undefined =
       o && isWritableStream(o) ? o :
         i && isWritableStream(i) ? i : undefined
     opts =
@@ -148,9 +152,7 @@ export class Pipeline extends Duplex {
     }
 
     return new Promise<void>((resolve, reject) => {
-      const progressBar =
-        options.progress && new StreamProgress([input, ...this.pipeline, output].filter(present)).start()
-
+      let progressBar: StreamProgress | undefined
       let ended = false
       const end = () => {
         if (ended) {
@@ -185,11 +187,28 @@ export class Pipeline extends Duplex {
             handleError(err)
           }
         })
+      } else if (this.readable) {
+        // we need to pipe our output queue to something so the pipeline will end
+        output = this.pipe(
+          Object.assign(
+            new Writable({
+              objectMode: this.readableObjectMode,
+              write(chunk, enc, cb) {
+                cb()
+            }}),
+            { name: '/dev/null' },
+          ),
+        )
       }
-
       if (input) {
         input.pipe(this)
       }
+
+      if (options.progress) {
+        progressBar = new StreamProgress([input, ...this.pipeline, output].filter(present))
+          .start()
+      }
+
       this._init()
     })
   }

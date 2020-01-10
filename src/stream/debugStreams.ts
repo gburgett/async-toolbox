@@ -1,4 +1,7 @@
-export function debugStreams(streams: NodeJS.ReadableStream[], logger: Logger = console): NodeJS.Timeout {
+export function debugStreams(
+  streams: Array<NodeJS.ReadableStream | NodeJS.WritableStream>,
+  logger: Logger = console,
+): NodeJS.Timeout {
   const states: any[] = []
 
   streams.forEach((stream) => {

@@ -4,8 +4,7 @@ const { parse, stringify } = require('JSONStream')
 import * as path from 'path'
 import { Readable, Transform, Writable } from 'stream'
 
-import { onceAsync } from '../events'
-import { collect, toReadable } from '../stream'
+import { collect, debugStreams, toReadable } from '../stream'
 import { ShellPipe } from '../stream/shellPipe'
 import { CombineLines, SplitLines } from '../stream/splitLines'
 import { Pipeline } from './pipeline'
@@ -183,6 +182,25 @@ test('waits for readable stream to finish', async (t) => {
 
   await pipeline.run({ progress: false })
   t.deepEqual(chunks, ['abc'])
+})
+
+test('run without output discards readable data', async (t) => {
+  const source = toReadable(['abc'])
+
+  const pipeline = new Pipeline(
+    source,
+    new Transform({
+      objectMode: true,
+      write(chunk, enc, cb) {
+        this.push({ a: chunk })
+        cb()
+      },
+    }),
+  )
+  debugStreams([...pipeline.pipeline, (pipeline as any).out])
+
+  await pipeline.run()
+  t.pass('finished')
 })
 
 function rev() {
