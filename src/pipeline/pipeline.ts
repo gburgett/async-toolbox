@@ -191,11 +191,6 @@ export class Pipeline extends Duplex {
         input.pipe(this)
       }
       this._init()
-      if (!this.in) {
-        // our input is a readable stream that will end itself.  Meanwhile the
-        // wrapper should end.
-        this.end()
-      }
     })
   }
 
@@ -270,12 +265,16 @@ export class Pipeline extends Duplex {
       return a.pipe(b)
     })
 
-    last.on('end', () => {
-      this._end()
-    })
-    last.on('close', () => {
-      this._end()
-    })
+    if (this.out) {
+      this.out.on('end', () => {
+        this._end()
+      })
+    } else {
+      // not readable, so we just wait for the writable stream to finish
+      last.on('finish', () => {
+        this._end()
+      })
+    }
   }
 
   private _createErrorHandler(a: NodeJS.EventEmitter, b: NodeJS.EventEmitter): (err: any) => void {
@@ -298,7 +297,11 @@ export class Pipeline extends Duplex {
     }
     this._ended = true
     // EOF - triggers 'end' event.
-    this.push(null)
+    if (this.out) {
+      this.push(null)
+    } else {
+      this.end()
+    }
   }
 }
 

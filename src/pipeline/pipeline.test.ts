@@ -2,7 +2,7 @@ import test from 'ava'
 import * as fs from 'fs-extra'
 const { parse, stringify } = require('JSONStream')
 import * as path from 'path'
-import { Transform, Writable } from 'stream'
+import { Readable, Transform, Writable } from 'stream'
 
 import { onceAsync } from '../events'
 import { collect, toReadable } from '../stream'
@@ -156,6 +156,33 @@ test('allows a writable final stream', async (t) => {
 
   await pipeline.run({ progress: false })
   t.deepEqual(chunks, ['abc', 'def'])
+})
+
+test('waits for readable stream to finish', async (t) => {
+  const data = ['abc']
+  const source = new Readable({
+    objectMode: true,
+    read() {
+      setTimeout(() => {
+        this.push(data.pop() || null)
+      }, 100)
+    },
+  })
+  const chunks = [] as string[]
+
+  const pipeline = new Pipeline(
+    source,
+    new Writable({
+      objectMode: true,
+      write(chunk, enc, cb) {
+        chunks.push(chunk)
+        cb()
+      },
+    }),
+  )
+
+  await pipeline.run({ progress: false })
+  t.deepEqual(chunks, ['abc'])
 })
 
 function rev() {
