@@ -4,13 +4,14 @@ const { parse, stringify } = require('JSONStream')
 import * as path from 'path'
 import { Transform, Writable } from 'stream'
 
+import { onceAsync } from '../events'
 import { collect, toReadable } from '../stream'
 import { ShellPipe } from '../stream/shellPipe'
 import { CombineLines, SplitLines } from '../stream/splitLines'
 import { Pipeline } from './pipeline'
 
 test('no pipeline becomes a passthrough', async (t) => {
-  const pipe = new Pipeline([])
+  const pipe = new Pipeline()
 
   pipe.write('abcd')
   pipe.end()
@@ -20,12 +21,12 @@ test('no pipeline becomes a passthrough', async (t) => {
 })
 
 test('writes to multiple streams', async (t) => {
-  const pipe = new Pipeline([
+  const pipe = new Pipeline(
     new SplitLines(),
     rev(),
     slice(0, 4),
     new CombineLines(),
-  ])
+  )
 
   const buffers = collect(pipe)
 
@@ -43,12 +44,12 @@ test('writes to multiple streams', async (t) => {
 })
 
 test('ends when output is closed before writing finishes', async (t) => {
-  const pipe = new Pipeline([
+  const pipe = new Pipeline(
     new SplitLines({highWaterMark: 1}),
     rev(),
     slice(0, 4),
     new CombineLines({highWaterMark: 1}),
-  ])
+  )
   const input = toReadable(new Array(10000).fill('abcdefghijklmnopqrstuvwxyz\n'))
 
   const chunks: any[] = []
@@ -72,7 +73,7 @@ test('pipes lots of data through multiple ShellPipes', async (t) => {
   const outfile = path.join(dir, 'pipes_lots_of_data.txt')
   const output = fs.createWriteStream(outfile)
 
-  const pipeline = new Pipeline([
+  const pipeline = new Pipeline(
     ShellPipe.spawn('yes abcdefgh'),
     ShellPipe.spawn('rev'),
     new SplitLines(),
@@ -84,7 +85,7 @@ test('pipes lots of data through multiple ShellPipes', async (t) => {
     }),
     new CombineLines(),
     ShellPipe.spawn('head -n1000'),
-  ])
+  )
 
   await pipeline.run(undefined, output)
 
@@ -93,7 +94,7 @@ test('pipes lots of data through multiple ShellPipes', async (t) => {
 })
 
 test('works with badly behaved streams like JSONStream', async (t) => {
-  const pipeline = new Pipeline([
+  const pipeline = new Pipeline(
     parse(null),
     new Transform({
       objectMode: true,
@@ -102,7 +103,7 @@ test('works with badly behaved streams like JSONStream', async (t) => {
       },
     }),
     stringify(false),
-  ])
+  )
 
   pipeline.write(JSON.stringify({ a: 1 }) + '\n')
   pipeline.end()
@@ -111,19 +112,50 @@ test('works with badly behaved streams like JSONStream', async (t) => {
 })
 
 test('automatically figures out object mode', async (t) => {
-  const pipeline = new Pipeline([
+  const pipeline = new Pipeline(
     new Transform({
       objectMode: true,
       transform(chunk, encoding, cb) {
         cb(undefined, { b: chunk.a })
       },
     }),
-  ])
+  )
 
   pipeline.write({ a: 1 })
   pipeline.end()
   const results = await collect(pipeline)
   t.deepEqual(results, [{ b: 1 }])
+})
+
+test('allows a readable first stream', async (t) => {
+  const source = toReadable(['abc', 'def'])
+
+  const pipeline = new Pipeline(
+    source,
+    rev(),
+  )
+
+  const results = await collect(pipeline)
+  t.deepEqual(results, ['cba', 'fed'])
+})
+
+test('allows a writable final stream', async (t) => {
+  const source = toReadable(['abc', 'def'])
+  const chunks = [] as string[]
+
+  const pipeline = new Pipeline(
+    source,
+    new Writable({
+      objectMode: true,
+      write(chunk, enc, cb) {
+        chunks.push(chunk)
+        cb()
+      },
+    }),
+  )
+
+  await pipeline.run({ progress: false })
+  t.deepEqual(chunks, ['abc', 'def'])
 })
 
 function rev() {
