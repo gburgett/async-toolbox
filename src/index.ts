@@ -113,3 +113,27 @@ export function present<T>(value: T | null | undefined | false): value is T {
   }
   return !!value
 }
+
+export function memo<Fn extends (...args: any[]) => Promise<any>>(fn: Fn): Fn {
+  let memoized: any | undefined
+  let gotIt: boolean = false
+  let loading: Promise<any> | undefined
+  return async function(...args: any[]) {
+    if (gotIt) {
+      return memoized
+    }
+
+    try {
+      if (!loading) {
+        loading = fn.call(this, ...args)
+      }
+      memoized = await loading
+      gotIt = true
+      loading = undefined
+      return memoized
+    } catch (ex) {
+      loading = undefined
+      throw ex
+    }
+  } as Fn
+}
