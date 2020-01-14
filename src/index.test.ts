@@ -1,6 +1,6 @@
 import test from 'ava'
 
-import { memo, timeout, TimeoutError, wait } from '.'
+import { memo, present, timeout, TimeoutError, wait } from '.'
 
 test('timeout returns action result if no timeout', async (t) => {
 
@@ -31,6 +31,30 @@ test('timeout propagates error from function', async (t) => {
     'test error',
   )
 
+})
+
+test('present excludes empty string', async (t) => {
+  let s: 'a' | 'b' | '' | undefined
+  s = ''
+
+  if (present(s)) {
+    // typescript test - should narrow the type to exclude empty string
+    const result: 'a' | 'b' = s
+    t.fail()
+  } else {
+    t.pass()
+  }
+})
+
+test('present excludes whitespace string', async (t) => {
+  let s: string | '' | undefined
+  s = '   '
+
+  if (present(s)) {
+    t.fail()
+  } else {
+    t.pass()
+  }
 })
 
 test('memo runs fn only once', async (t) => {
