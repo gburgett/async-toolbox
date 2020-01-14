@@ -129,23 +129,25 @@ export class Pipeline extends Duplex {
   }
 
   public run(opts?: Partial<RunOptions>): Promise<void>
-  public run(output?: NodeJS.WritableStream, opts?: Partial<RunOptions>): Promise<void>
-  public run(input?: NodeJS.ReadableStream, output?: NodeJS.WritableStream, opts?: Partial<RunOptions>): Promise<void>
+  public run(
+    input: NodeJS.ReadableStream | undefined,
+    output: NodeJS.WritableStream | undefined,
+    opts?: Partial<RunOptions>,
+  ): Promise<void>
 
   public run(
-    i?: NodeJS.ReadableStream | NodeJS.WritableStream | Partial<RunOptions>,
-    o?: NodeJS.WritableStream | Partial<RunOptions>,
+    i?: NodeJS.ReadableStream | Partial<RunOptions>,
+    o?: NodeJS.WritableStream,
     opts?: Partial<RunOptions>,
   ): Promise<void> {
-    const input: NodeJS.ReadableStream | undefined =
-      i && isReadableStream(i) ? i : undefined
-    let output: NodeJS.WritableStream | undefined =
-      o && isWritableStream(o) ? o :
-        i && isWritableStream(i) ? i : undefined
-    opts =
-      opts ? opts :
-        o && !isWritableStream(o) ? o :
-          i && !isReadableStream(i) && !isWritableStream(i) ? i : undefined
+    if (!opts) {
+      if (i && !isReadableStream(i)) {
+        opts = i
+        i = undefined
+      }
+    }
+    const input = i as NodeJS.ReadableStream | undefined
+    let output = o
     const options = {
       progress: false,
       ...opts,
