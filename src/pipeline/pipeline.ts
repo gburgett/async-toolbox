@@ -107,8 +107,14 @@ export class Pipeline extends Duplex {
       ...opts,
     })
 
-    this.readableObjectMode = (this as any)._readableState.objectMode
-    this.writableObjectMode = (this as any)._writableState.objectMode
+    // in node 13 this is a property getter, but in node 10 it doesn't exist.
+    if (!this.hasOwnProperty('readableObjectMode')) {
+      this.readableObjectMode = (this as any)._readableState.objectMode
+    }
+    if (!this.hasOwnProperty('writableObjectMode')) {
+      this.writableObjectMode = (this as any)._writableState.objectMode
+    }
+
     this.pipeline = [
       ...pipeline,
     ]
