@@ -177,8 +177,6 @@ export class Pipeline extends Duplex {
       }
 
       this.on('end', end)
-      this.on('finish', end)
-      this.on('close', end)
       this.on('error', handleError)
 
       if (output) {
@@ -191,6 +189,7 @@ export class Pipeline extends Duplex {
             // trying to write to the next stage of the pipeline when it's been closed.
             // Just end this stream instead.
             this.destroy()
+            end()
           } else {
             handleError(err)
           }
@@ -207,7 +206,11 @@ export class Pipeline extends Duplex {
             { name: '/dev/null' },
           ),
         )
+      } else {
+        // treat the pipeline as a writable stream
+        this.on('finish', end)
       }
+
       if (input) {
         input.pipe(this)
       }

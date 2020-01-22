@@ -2,7 +2,7 @@ import test from 'ava'
 import * as fs from 'fs-extra'
 const { parse, stringify } = require('JSONStream')
 import * as path from 'path'
-import { Readable, Transform, Writable } from 'stream'
+import { PassThrough, Readable, Transform, Writable } from 'stream'
 
 import { collect, debugStreams, toReadable } from '../stream'
 import { ShellPipe } from '../stream/shellPipe'
@@ -197,10 +197,39 @@ test('run without output discards readable data', async (t) => {
       },
     }),
   )
-  debugStreams([...pipeline.pipeline, (pipeline as any).out])
 
   await pipeline.run()
   t.pass('finished')
+})
+
+test('run with a slow transformation waits for it to finish', async (t) => {
+  const source = toReadable(['abc', 'def'])
+  const chunks = [] as string[]
+  const sink = new Writable({
+    objectMode: true,
+    write(chunk, enc, cb) {
+      chunks.push(chunk)
+      cb()
+    },
+  })
+
+  const pipeline = new Pipeline(
+    new PassThrough({ objectMode: true }),
+    new Transform({
+      objectMode: true,
+      transform(chunk, enc, cb) {
+        setTimeout(() => {
+          this.push(chunk)
+          cb()
+        }, 1000)
+      },
+    }),
+  )
+
+  debugStreams([source, ...pipeline.pipeline, sink, pipeline])
+  await pipeline.run(source, sink)
+
+  t.deepEqual(chunks, ['abc', 'def'])
 })
 
 function rev() {
