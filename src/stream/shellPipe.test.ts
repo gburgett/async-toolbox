@@ -69,11 +69,11 @@ test('buffers stdin', async (t) => {
 })
 
 test('handles error code from invoked process', async (t) => {
-  const pipe = new ShellPipe('xargs curl -v').spawn()
+  const pipe = new ShellPipe('xargs bash -c "exit 255"').spawn()
 
   await t.throwsAsync(async () => {
-    // curl: (3) Bad URL
-    await pipe.writeAsync('https://')
+    await pipe.writeAsync('test\n')
+    await wait(10)
     await pipe.endAsync()
   })
 })
