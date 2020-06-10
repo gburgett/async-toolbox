@@ -30,6 +30,19 @@ you can require as you desire.
     Wraps an asynchronous function to prevent it from being executed more than
     once in any given period.  Similar to [lodash throttle](https://lodash.com/docs/4.17.15#throttle) but for async functions.
 
+* `recurring`
+    Wraps an asynchronous function in a setInterval, where the specified interval
+    is the time between when the async function completes and the start of it's next invocation.  
+    Example:
+    ```
+      setRecurring(myFunc, 500):
+      | -- execution takes 10ms -- | -- 500 ms -- | <-- total of 510 ms to next execution
+      setInterval(myFunc, 500):
+      | -- execution takes 10ms -- |
+      | ------------------------- 500 ms ---- | <-- total of 500ms to next execution
+    ```
+
+
 ## Pipeline
 
 `import { Pipeline, StreamProgress } from 'async-toolbox/pipeline'`

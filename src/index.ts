@@ -2,6 +2,7 @@ export * from './semaphore'
 export * from './limiter'
 export * from './promisify'
 export * from './throttle'
+export * from './recurring'
 
 /**
  * Returns a promise which resolves after a given number of milliseconds,
