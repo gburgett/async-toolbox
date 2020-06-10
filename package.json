@@ -1,6 +1,6 @@
 {
   "name": "async-toolbox",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "A toolbox of utilities to help with async (promise-based) transformations",
   "main": "dist/index",
   "files": [
