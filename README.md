@@ -10,7 +10,14 @@ you can require as you desire.
 
 ## Utilities
 
-`import { wait, Semaphore, Limiter, promisify, callbackify } from 'async-toolbox'`
+`import { wait, waitUntil, Semaphore, Limiter, ...  } from 'async-toolbox'`
+
+OR
+
+`import wait from 'async-toolbox/wait'`
+`import waitUntil from 'async-toolbox/waitUntil'`
+`import Semaphore from 'async-toolbox/semaphore'`
+etc...
 
 * `function wait(ms: number): Promise<void>`  
   Returns a promise which resolves after a given number of milliseconds, using setTimeout.

@@ -1,9 +1,9 @@
 node_modules
 dist
 
-src/**/*.js
-src/**/*.map
-src/**/*.d.ts
+**/*.js
+**/*.map
+**/*.d.ts
 
 coverage
 .nyc_output

@@ -1,0 +1,29 @@
+#! /usr/bin/env bash
+
+# https://stackoverflow.com/a/246128
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
+
+# ensure we're at the project root
+pushd "$DIR/.."
+
+MODULES=$(find ./src -maxdepth 1 -type f -name "*.ts" -not -name "*.d.ts" -not -name "*.test.ts" -not -name "index.ts")
+MODULES_2=$(find src/* -maxdepth 1 -type f -name "index.ts" | xargs -I{} dirname {} | xargs basename | grep -v src)
+MODULES="$MODULES"$'\n'"$MODULES_2"
+
+while IFS= read -r module; do
+  module=$(basename "$module")
+  module="${module%.ts}"
+
+  cat <<- EOF > "$module.js"
+module.exports = require('./dist/$module')
+EOF
+  cat <<- EOF > "$module.d.ts"
+export * from './dist/$module'
+EOF
+done <<< "$MODULES"

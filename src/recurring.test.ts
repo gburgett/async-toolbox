@@ -52,7 +52,7 @@ test('runs the function a second time after the fn finishes', async (t) => {
   }, 100)
 
   // wait
-  await wait(260)
+  await wait(280)
 
   t.deepEqual(executions.length, 2)
   t.assert(executions[1] - executions[0] >= 100 + 50)
@@ -68,7 +68,7 @@ test('runs the function even if we dont keep a reference', async (t) => {
   }, 100)
 
   // wait
-  await wait(260)
+  await wait(280)
 
   t.deepEqual(executions.length, 2)
 })
