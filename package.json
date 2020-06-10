@@ -26,7 +26,7 @@
     "coveralls": "nyc report --reporter=text-lcov | coveralls",
     "build": "tsc",
     "prepack": "yarn run build && bin/template_es_modules",
-    "clean": "rm -rf dist; bash -c 'shopt -s globstar; rm src/**/*.js src/**/*.map src/**/*.d.ts *.js *.d.ts'; true"
+    "clean": "rm -rf dist tmp; bash -c 'shopt -s globstar; rm src/**/*.js src/**/*.map src/**/*.d.ts *.js *.d.ts'; true"
   },
   "keywords": [
     "async",
