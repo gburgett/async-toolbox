@@ -1,11 +1,24 @@
 
 declare var performance: { now(): number }
-export const isomorphicPerformance: typeof performance = typeof (performance) != 'undefined' ?
-  performance :
-  // we only get here in nodejs.  Use eval to confuse webpack so it doesn't import
-  // the perf_hooks package.
-  // tslint:disable-next-line:no-eval
-  eval('require')('perf_hooks').performance
+export const isomorphicPerformance: { now(): number } = (() => {
+  if (typeof (performance) != 'undefined') {
+    return performance
+  }
+  if (typeof (eval) != 'undefined' && typeof (require) != 'undefined') {
+    try {
+      // we only get here in nodejs.  Use eval to confuse webpack so it doesn't import
+      // the perf_hooks package.
+      // tslint:disable-next-line:no-eval
+      return eval('require')('perf_hooks').performance
+    } catch (ex) {
+      // Error: cannot find module 'perf_hooks'
+    }
+  }
+
+  // we fall through here if all ways of looking up the "performance" API failed.
+  // This can happen inside ExecJS during server-side rendering.
+  return Date
+})()
 
 // tslint:disable-next-line: no-shadowed-variable
 export function timeout<T>(action: () => Promise<T>, timeout: number): Promise<T> {
