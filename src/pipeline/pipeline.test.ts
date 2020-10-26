@@ -226,7 +226,7 @@ test('run with a slow transformation waits for it to finish', async (t) => {
     }),
   )
 
-  debugStreams([source, ...pipeline.pipeline, sink, pipeline])
+  // debugStreams([source, ...pipeline.pipeline, sink, pipeline])
   await pipeline.run(source, sink)
 
   t.deepEqual(chunks, ['abc', 'def'])

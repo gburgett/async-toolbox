@@ -7,7 +7,6 @@ import { wait } from '..'
 import '../events'
 import { onceAsync } from '../events'
 import { writeAsync } from './async_writer'
-import {debugStreams} from './debugStreams'
 import { ShellPipe } from './shellPipe'
 
 test('reads from stdout', async (t) => {
