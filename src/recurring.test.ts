@@ -19,13 +19,13 @@ test('runs the function after the initial timeout', async (t) => {
   (t.context as Ctx).recurrence = setRecurring(async () => {
     executions.push(Date.now())
     await wait(2)
-  }, 10)
+  }, 100)
 
   // wait
-  await wait(13)
+  await wait(130)
 
   t.deepEqual(executions.length, 1)
-  t.assert(executions[0] >= start + 10)
+  t.assert(executions[0] >= start + 100)
 })
 
 test('passes arguments', async (t) => {
@@ -34,10 +34,10 @@ test('passes arguments', async (t) => {
   // act
   (t.context as Ctx).recurrence = setRecurring(async (arg1: string, arg2: number) => {
     args = [arg1, arg2]
-  }, 10, 'test', 42)
+  }, 100, 'test', 42)
 
   // wait
-  await wait(15)
+  await wait(150)
 
   t.deepEqual(args, ['test', 42])
 })

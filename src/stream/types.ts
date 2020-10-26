@@ -9,8 +9,7 @@ export interface Readable<T> extends ReadableImpl {
 export interface Writable<T> extends WritableImpl {
   write(chunk: T, cb?: (error: Error | null | undefined) => void): boolean
   write(chunk: T, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
-  write(chunk: any, cb?: (error: Error | null | undefined) => void): boolean
-  write(chunk: any, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
+
   writeAsync(chunk: T, encoding?: string): Promise<void>
   end(cb?: () => void): void
   end(chunk: T, cb?: () => void): void

@@ -1,11 +1,11 @@
 import test from 'ava'
 import { performance } from 'perf_hooks'
 
+import { collect, toReadable } from '.'
+import { onceAsync } from '../events'
+import { wait } from '../wait'
+import { endAsync, writeAsync } from './async_writer'
 import { batch } from './batch'
-import { onceAsync } from './events'
-import { collect, toReadable } from './stream'
-import { endAsync, writeAsync } from './stream/async_writer'
-import { wait } from './wait'
 
 test('invokes the function immediately', async (t) => {
   const batches: string[][] = []
@@ -32,7 +32,7 @@ test('throttles the batch function', async (t) => {
   const stream = batch(async (b: string[]) => {
     invocations.push(performance.now())
     batches.push(b)
-  }, { throttle: 100 })
+  }, { throttlePeriod: 100 })
 
   const start = performance.now()
   await stream.writeAsync('1')
@@ -47,7 +47,7 @@ test('throttles the batch function', async (t) => {
     ['2', '3'],
   ])
   t.deepEqual(invocations.length, 2)
-  t.true(invocations[0] - start < 10)
+  t.true(invocations[0] - start < 90)
   // should wait approx. 100ms between
   t.true(invocations[1] - invocations[0] > 90)
 })

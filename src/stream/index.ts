@@ -10,6 +10,7 @@ export * from './paged_source'
 export * from './shellPipe'
 export * from './debugStreams'
 export * from './splitLines'
+export * from './batch'
 export * from './types'
 
 /**

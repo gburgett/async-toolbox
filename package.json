@@ -17,6 +17,7 @@
     "coverage": "yarn run test && nyc report --reporter=html && open coverage/index.html",
     "coveralls": "nyc report --reporter=text-lcov | coveralls",
     "build": "tsc",
+    "check-types": "tsc --noemit",
     "prepack": "yarn run build && bin/template_es_modules",
     "clean": "rm -rf dist tmp; bash -c 'shopt -s globstar; rm src/**/*.js src/**/*.map src/**/*.d.ts *.js *.d.ts'; true"
   },

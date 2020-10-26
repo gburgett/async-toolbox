@@ -1,4 +1,4 @@
-import { wait } from '.'
+import { wait } from './wait'
 
 /**
  * Throttle an asynchronous function so it is only invoked once during the period,

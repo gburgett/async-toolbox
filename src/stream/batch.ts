@@ -1,17 +1,52 @@
-import { ParallelTransform, ParallelTransformOptions } from './stream'
-import { Transform, Writable } from './stream/types'
-import { throttle } from './throttle'
+import { throttle } from '../throttle'
+import { ParallelTransform, ParallelTransformOptions } from './parallel_transform'
+import { Transform, Writable } from './types'
 
 interface BatchOptions {
+  /**
+   * The maximum number of items that will be passed to the processor in each
+   * invocation.  Defaults to 1000.  Can be set to Infinity.
+   */
   maxBatchSize: number,
-  throttle: number
+  /**
+   * The amount of time in ms that the processor will wait between invocations.
+   * This also ensures all processor invocations happen in serial.
+   *
+   * Defaults to 0, which only ensures that the invocations happen in serial.
+   * @see throttle
+   */
+  throttlePeriod: number
 }
 
+/**
+ * Constructs a Writable stream that aggregates writes and passes them to an
+ * asynchronous batch processing function.  This function is always invoked in
+ * serial (never in parallel) with the next `maxBatchSize` items that were
+ * written to the queue.
+ *
+ * The first invocation always happens with a single item in the batch, then
+ * subsequent batches contain more items up to `maxBatchSize`.
+ */
 export function batch<T>(
   processor: (batch: T[]) => Promise<void>,
   options?: Partial<BatchOptions>,
 ): Writable<T>
 
+/**
+ * Constructs a Transform stream that aggregates writes and passes them to an
+ * asynchronous batch processing function.  This function is always invoked in
+ * serial (never in parallel) with the next `maxBatchSize` items that were
+ * written to the queue.
+ *
+ * The results of the batch processing function are written to the readable
+ * side of the transform stream.  Note that if the function returns `undefined`
+ * and the stream is not yet flowing, the stream will be switched to the flowing
+ * state.  This is to support the other use case of a write-only batch processing
+ * function.
+ *
+ * The first invocation always happens with a single item in the batch, then
+ * subsequent batches contain more items up to `maxBatchSize`.
+ */
 export function batch<T, U>(
   processor: (batch: T[]) => Promise<U[] | void>,
   options?: Partial<BatchOptions>,
@@ -23,7 +58,7 @@ export function batch<T, U>(
 ): Transform<T, U> {
   const opts = Object.assign({
     maxBatchSize: 1000,
-    throttle: 0,
+    throttlePeriod: 0,
   }, options)
 
   return new BatchProcessingStream(
@@ -53,7 +88,7 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
       this._processBatch = processBatch
     }
 
-    this.processQueue = throttle(this.processQueue, this.options.throttle)
+    this.processQueue = throttle(this.processQueue, this.options.throttlePeriod)
   }
 
   public async _transformAsync(chunk: T) {
