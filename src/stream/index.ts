@@ -1,7 +1,8 @@
-import { Readable as ReadableImpl, Transform as TransformImpl, Writable as WritableImpl } from 'stream'
+import { Readable as ReadableImpl, Writable as WritableImpl } from 'stream'
 
 import './async_reader'
 import './async_writer'
+import { Readable, Transform, Writable } from './types'
 
 export * from './parallel_transform'
 export * from './parallel_writable'
@@ -9,6 +10,7 @@ export * from './paged_source'
 export * from './shellPipe'
 export * from './debugStreams'
 export * from './splitLines'
+export * from './types'
 
 /**
  * Converts an array of chunks into a readable object stream which can be piped
@@ -75,37 +77,4 @@ export function collect<T = any>(
 
     stream.on('error', (err) => reject(err))
   })
-}
-
-export interface Readable<T> extends ReadableImpl {
-  read(size?: number): T
-  readAsync(size?: number): Promise<T>
-  push(chunk: T, encoding?: string): boolean
-}
-
-export interface Writable<T> extends WritableImpl {
-  write(chunk: T, cb?: (error: Error | null | undefined) => void): boolean
-  write(chunk: T, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
-  write(chunk: any, cb?: (error: Error | null | undefined) => void): boolean
-  write(chunk: any, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
-  writeAsync(chunk: T, encoding?: string): Promise<void>
-  end(cb?: () => void): void
-  end(chunk: T, cb?: () => void): void
-  end(chunk: T, encoding?: string, cb?: () => void): void
-  end(chunk: any, cb?: () => void): void
-  end(chunk: any, encoding?: string, cb?: () => void): void
-}
-
-export interface Transform<T, U> extends TransformImpl {
-  read(size?: number): U
-  readAsync(size?: number): Promise<U>
-  push(chunk: U, encoding?: string): boolean
-
-  write(chunk: T, cb?: (error: Error | null | undefined) => void): boolean
-  write(chunk: T, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
-  writeAsync(chunk: T, encoding?: string): Promise<void>
-  end(cb?: () => void): void
-  end(buffer: Buffer, cb?: () => void): void
-  end(chunk: T, cb?: () => void): void
-  end(chunk: T, encoding?: string, cb?: () => void): void
 }
