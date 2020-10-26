@@ -5,6 +5,7 @@ import * as path from 'path'
 import { collect, toReadable } from '.'
 import { wait } from '..'
 import '../events'
+import { onceAsync } from '../events'
 import { writeAsync } from './async_writer'
 import {debugStreams} from './debugStreams'
 import { ShellPipe } from './shellPipe'
@@ -71,11 +72,12 @@ test('buffers stdin', async (t) => {
 test('handles error code from invoked process', async (t) => {
   const pipe = new ShellPipe('xargs bash -c "exit 255"').spawn()
 
-  await t.throwsAsync(async () => {
-    await pipe.writeAsync('test\n')
-    await wait(10)
-    await pipe.endAsync()
-  })
+  const pEnd = onceAsync(pipe, 'end')
+  pipe.write('test\n')
+  await wait(100)
+  pipe.end()
+
+  await t.throwsAsync(async () => await pEnd)
 })
 
 test('handles big chunks of stdout', async (t) => {
