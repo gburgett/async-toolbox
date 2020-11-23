@@ -20,19 +20,19 @@ test('reads all given chunks', async (t) => {
 //   const source = new ReentrantSource({}, upTo(100))
 //   const chunks = [] as string[]
 
-//   await source.writeAsync('pushed1')
+//   await writeAsync(source, 'pushed1')
 //   const p = collect(source, (c) => chunks.push(c))
 
 //   while (chunks.length < 101) {
 //     await wait(1)
 //   }
-//   await source.writeAsync('pushed2')
+//   await writeAsync(source, 'pushed2')
 
 //   while (chunks.length < 102) {
 //     await wait(1)
 //   }
 
-//   await source.writeAsync('pushed3')
+//   await writeAsync(source, 'pushed3')
 
 //   source.end()
 //   await p

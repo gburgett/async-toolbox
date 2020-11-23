@@ -3,6 +3,7 @@ import { Writable } from 'stream'
 
 import {waitUntil} from '../index'
 import './async_writer'
+import { writeAsync } from './async_writer'
 
 // tslint:disable:no-unused-expression
 
@@ -17,9 +18,9 @@ test('writes chunks to the stream', async (t) => {
     },
   })
 
-  await stream.writeAsync('1')
-  await stream.writeAsync('2')
-  await stream.writeAsync('3')
+  await writeAsync(stream, '1')
+  await writeAsync(stream, '2')
+  await writeAsync(stream, '3')
 
   t.deepEqual(chunks.map((c) => c.toString()), ['1', '2', '3'])
 })
@@ -39,11 +40,11 @@ test('still writable after an error', async (t) => {
   const streamErrs: Error[] = []
   stream.on('error', (e) => streamErrs.push(e))
 
-  await stream.writeAsync('1')
+  await writeAsync(stream, '1')
   await waitUntil(() => streamErrs.length == 1)
   t.true(streamErrs[0].message == 'test err')
 
-  await stream.writeAsync('2')
+  await writeAsync(stream, '2')
   t.deepEqual(streamErrs.length, 1)
 })
 
@@ -59,8 +60,8 @@ test('waits for the drain event if draining', async (t) => {
     },
   })
 
-  stream.writeAsync('1')
-  const p2 = stream.writeAsync('2')
+  writeAsync(stream, '1')
+  const p2 = writeAsync(stream, '2')
   let p2done = false
   let p2err: any = null
   p2.then(() => p2done = true, (err) => p2err = err)
@@ -84,9 +85,9 @@ test('recursively writes the chunk after drain event', async (t) => {
     },
   })
 
-  const p1 = stream.writeAsync('1')
-  const p2 = stream.writeAsync('2')
-  const p3 = stream.writeAsync('3')
+  const p1 = writeAsync(stream, '1')
+  const p2 = writeAsync(stream, '2')
+  const p3 = writeAsync(stream, '3')
   let p3done = false
   let p3err: any = null
   p3.then(() => p3done = true, (err) => p3err = err)
@@ -125,14 +126,14 @@ test('can resume after draining', async (t) => {
     },
   })
 
-  const p1 = stream.writeAsync('1')
+  const p1 = writeAsync(stream, '1')
   await p1
 
   // finish write '1' triggering drain event
   callbacks.shift()!()
   await wait(1)
 
-  const p2 = stream.writeAsync('2')
+  const p2 = writeAsync(stream, '2')
   await p2
   t.deepEqual(chunks.map((c) => c.toString()), ['1', '2'])
 

@@ -49,7 +49,7 @@ export async function endAsync(stream: Writable): Promise<void> {
     })
   } else {
     await _awaitDraining(stream)
-    return stream.endAsync()
+    return endAsync(stream)
   }
 }
 
@@ -84,55 +84,15 @@ function _awaitDraining(
     })
 }
 
-declare module 'stream' {
-  interface Writable {
-    /**
-     * Writes a chunk to the current write stream, returning a promise that completes
-     * when the chunk has actually been written.
-     *
-     * This function respects the 'drain' event of the stream.  If the stream is currently
-     * full, the function will queue the write until the drain event is fired.
-     * @param chunk The chunk to write
-     * @param encoding The encoding of the chunk
-     */
-    writeAsync(this: Writable, chunk: any, encoding?: string): Promise<void>
-
-    /**
-     * Ends the stream, returning a promise that completes when the stream is finished
-     * (i.e. the end callback has returned)
-     */
-    endAsync(this: Writable): Promise<void>
-  }
-
-  interface Duplex {
-    /**
-     * Writes a chunk to the current write stream, returning a promise that completes
-     * when the chunk has actually been written.
-     *
-     * This function respects the 'drain' event of the stream.  If the stream is currently
-     * full, the function will queue the write until the drain event is fired.
-     * @param chunk The chunk to write
-     * @param encoding The encoding of the chunk
-     */
-    writeAsync(this: Duplex, chunk: any, encoding?: string): Promise<void>
-
-    /**
-     * Ends the stream, returning a promise that completes when the stream is finished
-     * (i.e. the end callback has returned)
-     */
-    endAsync(this: Duplex): Promise<void>
-  }
-}
-
-Writable.prototype.writeAsync = function(chunk, encoding) {
+(Writable.prototype as any).writeAsync = function(chunk: any, encoding: any) {
   return writeAsync(this, chunk, encoding)
-}
-Duplex.prototype.writeAsync = function(chunk, encoding) {
+};
+(Duplex.prototype as any).writeAsync = function(chunk: any, encoding: any) {
   return writeAsync(this, chunk, encoding)
-}
-Writable.prototype.endAsync = function() {
+};
+(Writable.prototype as any).endAsync = function() {
   return endAsync(this)
-}
-Duplex.prototype.endAsync = function() {
+};
+(Duplex.prototype as any).endAsync = function() {
   return endAsync(this)
 }

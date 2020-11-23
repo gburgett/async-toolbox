@@ -6,7 +6,8 @@ import { collect, toReadable } from '.'
 import { wait } from '..'
 import '../events'
 import { onceAsync } from '../events'
-import { writeAsync } from './async_writer'
+import { readAsync } from './async_reader'
+import { endAsync, writeAsync } from './async_writer'
 import { ShellPipe } from './shellPipe'
 
 test('reads from stdout', async (t) => {
@@ -27,13 +28,13 @@ test('reads a lot of data from stdout', async (t) => {
 test('buffers stdout', async (t) => {
   const pipe = new ShellPipe('yes').spawn()
 
-  let buffer = await pipe.readAsync(20)
+  let buffer = await readAsync(pipe, 20)
 
   t.true(buffer.length >= 20)
   await wait(500)
   t.true(pipe.readableLength > 0)
 
-  buffer = await pipe.readAsync(20)
+  buffer = await readAsync(pipe, 20)
 
   t.true(buffer.length >= 20)
   await wait(500)
@@ -48,7 +49,7 @@ test('writes through stdin', async (t) => {
   for (let i = 0; i < 1000; i++) {
     await writeAsync(pipe, 'abcdefghijklmnopqrstuvwxyz\n')
   }
-  await pipe.endAsync()
+  await endAsync(pipe)
 
   t.deepEqual((await buffers).join(''), 'zyxwvutsrqponmlkjihgfedcba\n'.repeat(1000))
 })
@@ -89,18 +90,18 @@ test('handles big chunks of stdout', async (t) => {
   for (let i = 0; i < 10000; i++) {
     await writeAsync(output, line)
   }
-  await output.endAsync()
+  await endAsync(output)
 
   const pipe = new ShellPipe(`cat '${outfile}'`).spawn()
 
   const chunks = [] as Buffer[]
 
-  let chunk = await pipe.readAsync(32 * 1024)
+  let chunk = await readAsync(pipe, 32 * 1024)
   chunks.push(chunk)
   t.true(chunk.length > 0)
   t.deepEqual(chunk.length, pipe.bytesRead)
   // tslint:disable-next-line: no-conditional-assignment
-  while (chunk = await pipe.readAsync(32 * 1024)) {
+  while (chunk = await readAsync(pipe, 32 * 1024)) {
     t.true(chunk.length > 0)
     chunks.push(chunk)
   }

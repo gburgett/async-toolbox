@@ -17,7 +17,7 @@ interface InternalAsyncState {
  * This function respects the 'readable' event of the stream.  If the stream is currently
  * waiting for data, the function will queue the read until the readable event is fired.
  */
-export async function readAsync(stream: NodeJS.ReadableStream & InternalAsyncState, size?: number): Promise<any> {
+export async function readAsync(stream: NodeJS.ReadableStream, size?: number): Promise<any> {
   if (!_initAsyncReadableState(stream)) {
     throw new Error(`_initAsyncWritableState returned false!`)
   }
@@ -82,32 +82,10 @@ function _initAsyncReadableState(
   return true
 }
 
-declare module 'stream' {
-  interface Readable {
-    /**
-     * Reads a chunk from the current write stream, returning a promise that completes
-     * when the chunk has actually been read.
-     *
-     * This function respects the 'readable' event of the stream.  If the stream is currently
-     * waiting for data, the function will queue the read until the readable event is fired.
-     */
-    readAsync(size?: number): Promise<any>
-  }
-
-  interface Duplex {
-    /**
-     * Reads a chunk from the current write stream, returning a promise that completes
-     * when the chunk has actually been read.
-     *
-     * This function respects the 'readable' event of the stream.  If the stream is currently
-     * waiting for data, the function will queue the read until the readable event is fired.
-     */
-    readAsync(size?: number): Promise<any>
-  }
-}
-Readable.prototype.readAsync = function(size) {
+(Readable.prototype as any).readAsync = function(size?: number) {
   return readAsync(this, size)
-}
-Duplex.prototype.readAsync = function(size) {
+};
+
+(Duplex.prototype as any).readAsync = function(size?: number) {
   return readAsync(this, size)
 }

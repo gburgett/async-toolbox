@@ -3,6 +3,7 @@ import test from 'ava'
 import { toReadable } from '.'
 import { wait } from '..'
 import '../events'
+import { endAsync, writeAsync } from './async_writer'
 import { ParallelWritable } from './parallel_writable'
 
 test('pipes from readable', async (t) => {
@@ -47,9 +48,9 @@ test('calls finalize if provided', async (t) => {
 
   const instance = new impl({ objectMode: true })
 
-  await instance.writeAsync('1')
+  await writeAsync(instance, '1')
 
-  const pEnd = instance.endAsync()
+  const pEnd = endAsync(instance)
   let pEndDone = false
   let pEndErr = null as Error | null
   pEnd.then(

@@ -14,10 +14,10 @@ test('invokes the function immediately', async (t) => {
     batches.push(b)
   })
 
-  await stream.writeAsync('1')
+  await writeAsync(stream, '1')
 
   const pEnd = onceAsync(stream, 'end')
-  await stream.endAsync()
+  await endAsync(stream)
   // await pEnd
 
   t.deepEqual(batches, [
@@ -35,11 +35,11 @@ test('throttles the batch function', async (t) => {
   }, { throttlePeriod: 100 })
 
   const start = performance.now()
-  await stream.writeAsync('1')
-  await stream.writeAsync('2')
-  await stream.writeAsync('3')
+  await writeAsync(stream, '1')
+  await writeAsync(stream, '2')
+  await writeAsync(stream, '3')
   const pEnd = onceAsync(stream, 'end')
-  await stream.endAsync()
+  await endAsync(stream)
   await pEnd
 
   t.deepEqual(batches, [
@@ -70,7 +70,7 @@ test('batches based on size limit', async (t) => {
   stream.write('5')
 
   const pEnd = onceAsync(stream, 'end')
-  await stream.endAsync()
+  await endAsync(stream)
   await pEnd
 
   t.deepEqual(batches, [

@@ -5,6 +5,7 @@ import * as path from 'path'
 import { PassThrough, Readable, Transform, Writable } from 'stream'
 
 import { collect, debugStreams, toReadable } from '../stream'
+import { endAsync, writeAsync } from '../stream/async_writer'
 import { ShellPipe } from '../stream/shellPipe'
 import { CombineLines, SplitLines } from '../stream/splitLines'
 import { Pipeline } from './pipeline'
@@ -30,11 +31,11 @@ test('writes to multiple streams', async (t) => {
   const buffers = collect(pipe)
 
   for (let i = 0; i < 10000; i++) {
-    await pipe.writeAsync(`abcdefgh`)
-    await pipe.writeAsync(`ijklmnop${i}`)
-    await pipe.writeAsync('\n')
+    await writeAsync(pipe, `abcdefgh`)
+    await writeAsync(pipe, `ijklmnop${i}`)
+    await writeAsync(pipe, '\n')
   }
-  await pipe.endAsync()
+  await endAsync(pipe)
 
   const lines = (await buffers).join('').split('\n')
   t.deepEqual(lines.length, 10001)

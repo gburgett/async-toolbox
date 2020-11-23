@@ -2,6 +2,7 @@ import test from 'ava'
 import { PassThrough } from 'stream'
 import { collect } from '.'
 import { wait } from '..'
+import { endAsync, writeAsync } from './async_writer'
 
 test('Duplex does not end until we tell it', async (t) => {
   const stream = new PassThrough({
@@ -20,18 +21,18 @@ test('Duplex does not end until we tell it', async (t) => {
   t.false(finished)
   t.falsy(err)
 
-  await stream.writeAsync('1')
+  await writeAsync(stream, '1')
   await wait(1)
   t.false(finished)
   t.falsy(err)
 
-  await stream.writeAsync('2')
+  await writeAsync(stream, '2')
   await wait(1)
   t.false(finished)
   t.falsy(err)
   t.deepEqual(chunks, ['1', '2'])
 
-  await stream.endAsync()
+  await endAsync(stream)
   t.true(finished)
   t.falsy(err)
 })
