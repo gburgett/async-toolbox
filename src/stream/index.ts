@@ -11,7 +11,7 @@ export * from './splitLines'
 export * from './batch'
 export * from './types'
 export * from './async_reader'
-export * from './async_reader'
+export * from './async_writer'
 
 /**
  * Converts an array of chunks into a readable object stream which can be piped
