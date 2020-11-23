@@ -1,7 +1,5 @@
 import { Readable as ReadableImpl, Writable as WritableImpl } from 'stream'
 
-import './async_reader'
-import './async_writer'
 import { Readable, Transform, Writable } from './types'
 
 export * from './parallel_transform'
@@ -12,6 +10,8 @@ export * from './debugStreams'
 export * from './splitLines'
 export * from './batch'
 export * from './types'
+export * from './async_reader'
+export * from './async_reader'
 
 /**
  * Converts an array of chunks into a readable object stream which can be piped
