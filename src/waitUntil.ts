@@ -6,7 +6,10 @@
  * @param options interval: how often to poll in milliseconds,
  *    timeout: how long to poll for before rejecting the promise
  */
-export function waitUntil(test: () => boolean, options?: { interval?: number, timeout?: number }): Promise<void> {
+export function waitUntil(
+  test: () => boolean | Promise<boolean>,
+  options?: { interval?: number, timeout?: number },
+): Promise<void> {
   const opts = Object.assign({
     interval: 1,
     timeout: 1000,
@@ -14,9 +17,9 @@ export function waitUntil(test: () => boolean, options?: { interval?: number, ti
 
   const start = Date.now()
   return new Promise((resolve, reject) => {
-    function check() {
+    async function check() {
       try {
-        if (test()) {
+        if (await test()) {
           resolve()
           return
         }
