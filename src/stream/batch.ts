@@ -1,4 +1,3 @@
-import { throttle } from '../throttle'
 import { ParallelTransform, ParallelTransformOptions } from './parallel_transform'
 import { Transform, Writable } from './types'
 
@@ -8,14 +7,6 @@ interface BatchOptions {
    * invocation.  Defaults to 1000.  Can be set to Infinity.
    */
   maxBatchSize: number,
-  /**
-   * The amount of time in ms that the processor will wait between invocations.
-   * This also ensures all processor invocations happen in serial.
-   *
-   * Defaults to 0, which only ensures that the invocations happen in serial.
-   * @see throttle
-   */
-  throttlePeriod: number
 }
 
 /**
@@ -87,8 +78,6 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
     if (processBatch) {
       this._processBatch = processBatch
     }
-
-    this.processQueue = throttle(this.processQueue, this.options.throttlePeriod)
   }
 
   public async _transformAsync(chunk: T) {
@@ -97,17 +86,20 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
     } else {
       this.nextQueue.push(chunk)
     }
+
     if (this.nextQueue.length >= this.options.maxBatchSize) {
       // don't accumulate more in the batch till we've processed this batch
-      const value = await this.processQueue()
-      this.pushBatch(value)
-    } else {
+      await this.processing
+    }
+
+    if (!this.processing) {
       // start it but keep accumulating the batch while we wait
      this.processing = this.processQueue()
         .then((value) => {
           this.pushBatch(value)
-        })
-        .catch((ex) => this.emit('error', ex))
+          this.processing = undefined
+        },
+        (ex) => this.emit('error', ex))
     }
   }
 
@@ -128,11 +120,11 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
     throw new Error('No implementation given for _processBatch')
   }
 
-  private async processQueue() {
+  private processQueue() {
     const b = this.queue
     this.queue = this.nextQueue
     this.nextQueue = []
-    return await this._processBatch(b)
+    return this._processBatch(b)
   }
 
   private pushBatch(value: U[] | void) {

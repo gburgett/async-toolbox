@@ -30,11 +30,11 @@ test('throttles the batch function', async (t) => {
   const invocations: number[] = []
 
   const stream = batch(async (b: string[]) => {
+    await wait(100)
     invocations.push(performance.now())
     batches.push(b)
-  }, { throttlePeriod: 100 })
+  }, { })
 
-  const start = performance.now()
   await writeAsync(stream, '1')
   await writeAsync(stream, '2')
   await writeAsync(stream, '3')
@@ -47,9 +47,6 @@ test('throttles the batch function', async (t) => {
     ['2', '3'],
   ])
   t.deepEqual(invocations.length, 2)
-  t.true(invocations[0] - start < 90)
-  // should wait approx. 100ms between
-  t.true(invocations[1] - invocations[0] > 90)
 })
 
 test('batches based on size limit', async (t) => {
@@ -82,6 +79,7 @@ test('batches based on size limit', async (t) => {
 
 test('sends results out the transform stream', async (t) => {
   const stream = batch(async (b: string[]) => {
+    await wait(100)
     return b.map((s) => parseInt(s, 10))
   }, { maxBatchSize: 2 })
 
