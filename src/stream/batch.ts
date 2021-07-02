@@ -19,7 +19,7 @@ interface BatchOptions {
  * subsequent batches contain more items up to `maxBatchSize`.
  */
 export function batch<T>(
-  processor: (batch: T[]) => Promise<void>,
+  processor: (this: Writable<T>, batch: T[]) => Promise<void>,
   options?: Partial<BatchOptions>,
 ): Writable<T>
 
@@ -39,12 +39,12 @@ export function batch<T>(
  * subsequent batches contain more items up to `maxBatchSize`.
  */
 export function batch<T, U>(
-  processor: (batch: T[]) => Promise<U[] | void>,
+  processor: (this: Transform<T, U>, batch: T[]) => Promise<U[] | void>,
   options?: Partial<BatchOptions>,
 ): Transform<T, U>
 
 export function batch<T, U>(
-  processor: (batch: T[]) => Promise<U[] | void>,
+  processor: (this: Transform<T, U>, batch: T[]) => Promise<U[] | void>,
   options?: Partial<BatchOptions>,
 ): Transform<T, U> {
   const opts = Object.assign({
