@@ -61,7 +61,6 @@ export function batch<T, U>(
 class BatchProcessingStream<T, U> extends ParallelTransform {
   private processing: Promise<any> | undefined = undefined
   private queue: T[] = []
-  private nextQueue: T[] = []
 
   constructor(
     processBatch: (batch: T[]) => Promise<U[] | void>,
@@ -83,24 +82,20 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
   public async _transformAsync(chunk: T) {
     if (this.queue.length < this.options.maxBatchSize) {
       this.queue.push(chunk)
-    } else {
-      this.nextQueue.push(chunk)
+      return
     }
 
-    if (this.nextQueue.length >= this.options.maxBatchSize) {
-      // don't accumulate more in the batch till we've processed this batch
-      await this.processing
-    }
+    // don't accumulate more in the batch till we've processed this batch
+    await this.processing
 
-    if (!this.processing) {
-      // start it but keep accumulating the batch while we wait
-     this.processing = this.processQueue()
-        .then((value) => {
-          this.pushBatch(value)
-          this.processing = undefined
-        },
-        (ex) => this.emit('error', ex))
-    }
+    // start the batch and then push this item onto the next batch
+    this.processing = this.processQueue()
+      .then((value) => {
+        this.pushBatch(value)
+        this.processing = undefined
+      },
+      (ex) => this.emit('error', ex))
+    this.queue.push(chunk)
   }
 
   public async _flushAsync() {
@@ -122,8 +117,7 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
 
   private processQueue() {
     const b = this.queue
-    this.queue = this.nextQueue
-    this.nextQueue = []
+    this.queue = []
     return this._processBatch(b)
   }
 

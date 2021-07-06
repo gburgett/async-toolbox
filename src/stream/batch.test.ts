@@ -25,30 +25,6 @@ test('invokes the function immediately', async (t) => {
   ])
 })
 
-test('throttles the batch function', async (t) => {
-  const batches: string[][] = []
-  const invocations: number[] = []
-
-  const stream = batch(async (b: string[]) => {
-    await wait(100)
-    invocations.push(performance.now())
-    batches.push(b)
-  }, { })
-
-  await writeAsync(stream, '1')
-  await writeAsync(stream, '2')
-  await writeAsync(stream, '3')
-  const pEnd = onceAsync(stream, 'end')
-  await endAsync(stream)
-  await pEnd
-
-  t.deepEqual(batches, [
-    ['1'],
-    ['2', '3'],
-  ])
-  t.deepEqual(invocations.length, 2)
-})
-
 test('batches based on size limit', async (t) => {
   const batches: string[][] = []
 
@@ -59,11 +35,11 @@ test('batches based on size limit', async (t) => {
 
   // 1st batch
   stream.write('1')
-  // 2nd batch
   stream.write('2')
+  // 2nd batch
   stream.write('3')
-  // 3rd batch (due to size limit)
   stream.write('4')
+  // 3rd batch (due to size limit)
   stream.write('5')
 
   const pEnd = onceAsync(stream, 'end')
@@ -71,9 +47,9 @@ test('batches based on size limit', async (t) => {
   await pEnd
 
   t.deepEqual(batches, [
-    ['1'],
-    ['2', '3'],
-    ['4', '5'],
+    ['1', '2'],
+    ['3', '4'],
+    ['5'],
   ])
 })
 
