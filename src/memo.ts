@@ -27,7 +27,7 @@ export function memo<Fn extends (...args: any[]) => Promise<any>>(fn: Fn): Fn {
   let memoized: any | undefined
   let gotIt: boolean = false
   let loading: Promise<any> | undefined
-  return async function(...args: any[]) {
+  return async function(this: any, ...args: any[]) {
     if (gotIt) {
       return memoized
     }

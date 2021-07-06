@@ -92,7 +92,7 @@ export class Semaphore extends EventEmitter {
    */
   public synchronize<Fn extends (...args: any[]) => Promise<any>>(fn: Fn): Fn {
     const semaphore = this
-    return function(...args: any[]) {
+    return function(this: any, ...args: any[]) {
       const self = this
       return semaphore.lock(() =>
         fn.apply(self, args),
@@ -268,7 +268,7 @@ export class Semaphore extends EventEmitter {
   private static readonly ReadLockImpl = class implements ReadLock {
     public type: 'read'
 
-    private consumed: boolean
+    private consumed: boolean | undefined
 
     constructor(private readonly task: Task, private readonly semaphore: Semaphore) {
       this.type = 'read'
@@ -302,7 +302,7 @@ export class Semaphore extends EventEmitter {
   private static readonly WriteLockImpl = class implements WriteLock {
     public type: 'write'
 
-    private consumed: boolean
+    private consumed: boolean | undefined
 
     constructor(private readonly task: Task, private readonly semaphore: Semaphore) {
       this.type = 'write'
@@ -317,6 +317,7 @@ export class Semaphore extends EventEmitter {
       if (tokensToRelease <= 0) {
         throw new Error(`Cannot downgrade a lock that has fewer than two tokens (had ${this.task.tokens})`)
       }
+      this.consumed = true
 
       this.semaphore._releaseTokens(tokensToRelease)
       this.task.tokens -= tokensToRelease

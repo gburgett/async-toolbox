@@ -81,6 +81,7 @@ export class StreamProgress {
       }
     })
 
+    this._chalk = fakeChalk
     if (this.options.color) {
       try {
         this._chalk = require('chalk')
@@ -89,9 +90,6 @@ export class StreamProgress {
           throw new Error('"color: true" set on StreamProgress but "chalk" is not installed.\n' + ex.toString())
         }
       }
-    }
-    if (!this._chalk) {
-      this._chalk = fakeChalk
     }
   }
 

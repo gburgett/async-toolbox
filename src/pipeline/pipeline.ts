@@ -43,13 +43,13 @@ export interface PipelineOptions {
  */
 export class Pipeline extends Duplex {
   public readonly pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>
-  public readonly readableObjectMode: boolean
-  public readonly writableObjectMode: boolean
+  public readonly readableObjectMode!: boolean
+  public readonly writableObjectMode!: boolean
 
-  private _initialized: boolean
+  private _initialized: boolean | undefined
   private in: NodeJS.WritableStream | undefined
   private out: NodeJS.ReadableStream | undefined
-  private _ended: boolean
+  private _ended: boolean | undefined
 
   // tslint:disable: max-line-length unified-signatures
   constructor(options?: PipelineOptions)
