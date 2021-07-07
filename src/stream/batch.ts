@@ -1,3 +1,5 @@
+import { Transform as TransformImpl, TransformCallback } from 'stream'
+import { wait } from '../wait'
 import { ParallelTransform, ParallelTransformOptions } from './parallel_transform'
 import { Transform, Writable } from './types'
 
@@ -7,11 +9,19 @@ interface BatchOptions {
    * invocation.  Defaults to 1000.  Can be set to Infinity.
    */
   maxBatchSize: number,
+
+  /**
+   * The maximum number of parallel invocations of the batch processor.  Defaults
+   * to 1, meaning that the function is not invoked until the previous invocation
+   * has returned.  Set it to `Infinity` to run the batch processor as soon
+   * as there's a full batch, even if the previous invocations have not finished.
+   */
+  parallelLimit: number
 }
 
 /**
  * Constructs a Writable stream that aggregates writes and passes them to an
- * asynchronous batch processing function.  This function is always invoked in
+ * asynchronous batch inProgress function.  This function is always invoked in
  * serial (never in parallel) with the next `maxBatchSize` items that were
  * written to the queue.
  *
@@ -25,14 +35,14 @@ export function batch<T>(
 
 /**
  * Constructs a Transform stream that aggregates writes and passes them to an
- * asynchronous batch processing function.  This function is always invoked in
+ * asynchronous batch inProgress function.  This function is always invoked in
  * serial (never in parallel) with the next `maxBatchSize` items that were
  * written to the queue.
  *
- * The results of the batch processing function are written to the readable
+ * The results of the batch inProgress function are written to the readable
  * side of the transform stream.  Note that if the function returns `undefined`
  * and the stream is not yet flowing, the stream will be switched to the flowing
- * state.  This is to support the other use case of a write-only batch processing
+ * state.  This is to support the other use case of a write-only batch inProgress
  * function.
  *
  * The first invocation always happens with a single item in the batch, then
@@ -49,18 +59,18 @@ export function batch<T, U>(
 ): Transform<T, U> {
   const opts = Object.assign({
     maxBatchSize: 1000,
-    throttlePeriod: 0,
+    parallelLimit: 1,
   }, options)
 
-  return new BatchProcessingStream(
+  return new BatchinProgressStream(
     processor,
     opts,
   )
 }
 
-class BatchProcessingStream<T, U> extends ParallelTransform {
-  private processing: Promise<any> | undefined = undefined
-  private queue: T[] = []
+class BatchinProgressStream<T, U> extends TransformImpl {
+  private inProgress: Array<Promise<any>> = []
+  private nextBatch: T[] = []
 
   constructor(
     processBatch: (batch: T[]) => Promise<U[] | void>,
@@ -69,7 +79,6 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
     // we keep our own queue, and when our queue is full that's when we need
     // to block
     super({
-      maxParallelChunks: 1,
       writableHighWaterMark: 1,
       objectMode: true,
     } as ParallelTransformOptions)
@@ -79,33 +88,52 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
     }
   }
 
-  public async _transformAsync(chunk: T) {
-    if (this.queue.length < this.options.maxBatchSize) {
-      this.queue.push(chunk)
-      return
+  public _transform(chunk: T, _encoding: any, cb: TransformCallback) {
+    const transformAsync = async () => {
+      if (this.nextBatch.length < this.options.maxBatchSize) {
+        this.nextBatch.push(chunk)
+        return
+      }
+
+      while (this.inProgress.length >= this.options.parallelLimit) {
+        // Start putting backpressure by waiting for one of the parallel inProgress tasks
+        // to finish
+        await Promise.race([...this.inProgress])
+      }
+
+      // start the batch and then push this item onto the next batch
+      this.processQueue()
+      this.nextBatch.push(chunk)
     }
 
-    // don't accumulate more in the batch till we've processed this batch
-    await this.processing
-
-    // start the batch and then push this item onto the next batch
-    this.processing = this.processQueue()
-      .then((value) => {
-        this.pushBatch(value)
-        this.processing = undefined
-      },
-      (ex) => this.emit('error', ex))
-    this.queue.push(chunk)
+    transformAsync()
+      .then(
+        () => cb(undefined),
+        (err) => cb(err),
+      )
   }
 
-  public async _flushAsync() {
-    await this.processing
+  public _flush(cb: TransformCallback) {
+    const flushAsync = async () => {
+      // ensure the queue finishes before we end
+      while (this.nextBatch.length > 0) {
+        while (this.inProgress.length >= this.options.parallelLimit) {
+          await Promise.race([...this.inProgress])
+        }
 
-    // ensure the queue finishes before we end
-    while (this.queue.length > 0) {
-      const value = await this.processQueue()
-      this.pushBatch(value)
+        this.processQueue()
+        await wait(1)
+      }
+
+      // Wait for all the in-progress batch transformations to finish
+      await Promise.all([...this.inProgress])
     }
+
+    flushAsync()
+      .then(
+        () => cb(undefined),
+        (err) => cb(err),
+      )
   }
 
   /**
@@ -116,9 +144,20 @@ class BatchProcessingStream<T, U> extends ParallelTransform {
   }
 
   private processQueue() {
-    const b = this.queue
-    this.queue = []
-    return this._processBatch(b)
+    const b = this.nextBatch
+    this.nextBatch = []
+    const p = this._processBatch(b)
+      .then((value) => {
+        // send the resulting values downstream
+        this.pushBatch(value)
+        // remove this promise from the "inProgress" array
+        const idx = this.inProgress.indexOf(p)
+        if (idx >= 0) { this.inProgress.splice(idx, 1) }
+      },
+      (ex) => this.emit('error', ex))
+    this.inProgress.push(p)
+
+    return p
   }
 
   private pushBatch(value: U[] | void) {
