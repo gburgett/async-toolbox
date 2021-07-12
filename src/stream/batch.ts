@@ -17,6 +17,9 @@ interface BatchOptions {
    * as there's a full batch, even if the previous invocations have not finished.
    */
   parallelLimit: number
+
+  /** Sets the name of the stream for use in a Pipeline with StreamProgress */
+  name?: string
 }
 
 /**
@@ -62,13 +65,14 @@ export function batch<T, U>(
     parallelLimit: 1,
   }, options)
 
-  return new BatchinProgressStream(
+  return new BatchStream(
     processor,
     opts,
   )
 }
 
-class BatchinProgressStream<T, U> extends TransformImpl {
+class BatchStream<T, U> extends TransformImpl {
+  public readonly name?: string
   private inProgress: Array<Promise<any>> = []
   private nextBatch: T[] = []
 
@@ -86,6 +90,7 @@ class BatchinProgressStream<T, U> extends TransformImpl {
     if (processBatch) {
       this._processBatch = processBatch
     }
+    this.name = options.name || (processBatch && processBatch.name)
   }
 
   public _transform(chunk: T, _encoding: any, cb: TransformCallback) {
