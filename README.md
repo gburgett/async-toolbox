@@ -165,12 +165,18 @@ Augments the base Readable, Writable, and Duplex streams with new capabilities, 
   Reads all the chunks of a readable stream and collects them in an array.
 * `writeAsync(stream: Writable, chunk: any, encoding?: string): Promise<void>`  
   Writes a chunk to the current write stream, returning a promise that completes when the chunk has actually been written.
-* `readAsync(stream: Readable size?: number): Promise<any>`  
+* `readAsync(stream: Readable, size?: number): Promise<any>`  
   Reads a chunk from the current write stream, returning a promise that completes when the chunk has actually been read.
 * `class ParallelWritable extends Writable`  
   An extension of a Writable stream which can process chunks in parallel.
 * `class ParallelTransform extends Transform`  
   An extension of a Transform stream which can process chunks in parallel.  Ordering is not preserved, because the individual transformations may complete in any order.
+* `batch<T, U>(processor: (batch: T[]) => Promise<U[] | void>): Transform<T, U>`
+  This constructor wraps a batch processing function in a TransformStream.
+  When the stream collects `maxBatchSize` items (default 1000), it invokes the 
+  batch function with the array of all 1000 items.  The batch function should
+  return an array (or void), which is then written to the output of the
+  TransformStream.
 * `class SplitLines` and `class CombineLines`
   Converts a string/buffer stream into an Object stream where each chunk is one line, and vice versa.
   Really useful when reading from or writing to a `ShellPipe`.
@@ -219,17 +225,3 @@ This can be used to replace the following pattern of code:
 * `parallel(list, options?).flatMap(async (item) => ...)).flatMap(...`
   Creates a monad which executes all async tasks in parallel, with optionally limited concurrency.
   Can accept a semaphore implementation which is passed along to each step in the chain.
-
-## Request
-
-`import {AsyncRequest} 'async-toolbox/request`
-
-Augments the [Request](https://www.npmjs.com/package/request) NPM library
-to make the HTTP methods like `get` and `post` use promises.
-
-```ts
-const request = AsyncRequest() // to use standard request lib
-const request = AsyncRequest(require('request-debug')(require('request'))) // alternate constructor
-
-const resp = await request.get('http://www.google.com')
-```
