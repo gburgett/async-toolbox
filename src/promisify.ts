@@ -9,9 +9,9 @@ export type TaskCB<T> = (err: Error | null, result?: T) => void
  * If the action returns a 'thenable', that is awaited.  Otherwise, a new
  * promise object is returned which is resolved when the callback is called.
  */
-export function promisify<T>(action: MaybeCallback<T>): Promise<T> {
+export function promisify<T>(action: MaybeCallback<T>): Promise<T | undefined> {
   let returnedPromise: Promise<T> | void | undefined
-  const cbPromise = new Promise<T>((resolve, reject) => {
+  const cbPromise = new Promise<T | undefined>((resolve, reject) => {
     returnedPromise = action((err, result) => {
       if (err) {
         reject(err)

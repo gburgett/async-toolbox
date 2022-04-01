@@ -40,7 +40,7 @@ test('handles task error', async (t) => {
 test('queues up tasks greater than maxInflight', async (t) => {
   const semaphore = new Semaphore({ tokens: 2 })
 
-  const callbacks: Array<TaskCB<string>> = []
+  const callbacks: TaskCB<string>[] = []
   const action: Action<string> = (_, cb) => callbacks.push(cb)
   const p1 = semaphore.lock<string>(action)
   const p2 = semaphore.lock<string>(action)
@@ -92,7 +92,7 @@ test('queues up tasks greater than maxInflight', async (t) => {
 test('queues up a write task after all current read tasks', async (t) => {
   const semaphore = new Semaphore({ tokens: 2 })
 
-  const callbacks: Array<TaskCB<string>> = []
+  const callbacks: TaskCB<string>[] = []
   const action: Action<string> = (_, cb) => {
     callbacks.push(cb)
   }
@@ -136,7 +136,7 @@ test('queues up a write task after all current read tasks', async (t) => {
 test('can upgrade a readLock to a writeLock', async (t) => {
   const semaphore = new Semaphore({ tokens: 2 })
 
-  const callbacks: Array<TaskCB<string>> = []
+  const callbacks: TaskCB<string>[] = []
   const action: Action<string> = (_, cb) => {
     callbacks.push(cb)
   }
@@ -191,7 +191,7 @@ test('can upgrade a readLock to a writeLock', async (t) => {
 test('can downgrade a writeLock to a readLock', async (t) => {
   const semaphore = new Semaphore({ tokens: 2 })
 
-  const callbacks: Array<TaskCB<string>> = []
+  const callbacks: TaskCB<string>[] = []
   const action: Action<string> = (_, cb) => {
     callbacks.push(cb)
   }

@@ -10,7 +10,7 @@ export const isomorphicPerformance: { now(): number } = (() => {
       // the perf_hooks package.
       // tslint:disable-next-line:no-eval
       return eval('require')('perf_hooks').performance
-    } catch (ex) {
+    } catch (ex: any) {
       // Error: cannot find module 'perf_hooks'
     }
   }
@@ -40,7 +40,7 @@ export function timeout<T>(action: () => Promise<T>, timeout: number): Promise<T
         clearTimeout(timer)
         resolve(result)
       }
-    } catch (ex) {
+    } catch (ex: any) {
       if (!completed) {
         completed = true
         clearTimeout(timer)

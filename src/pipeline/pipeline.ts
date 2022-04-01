@@ -9,7 +9,7 @@ interface RunOptions {
 
 export interface PipelineOptions {
   highWaterMark?: number
-  encoding?: string
+  encoding?: BufferEncoding
   decodeStrings?: boolean
   objectMode?: boolean
   readableObjectMode?: boolean
@@ -42,7 +42,7 @@ export interface PipelineOptions {
  * one of the above 4 things, the `finish` event will never be fired.
  */
 export class Pipeline extends Duplex {
-  public readonly pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>
+  public readonly pipeline: (NodeJS.ReadableStream | NodeJS.WritableStream)[]
   public readonly readableObjectMode!: boolean
   public readonly writableObjectMode!: boolean
 
@@ -54,16 +54,16 @@ export class Pipeline extends Duplex {
   // tslint:disable: max-line-length unified-signatures
   constructor(options?: PipelineOptions)
   /** Note: if a writable stream is given, it must be last in the list */
-  constructor(input?: NodeJS.ReadableStream | NodeJS.ReadWriteStream, ...pipeline: Array<NodeJS.ReadWriteStream | NodeJS.WritableStream>)
+  constructor(input?: NodeJS.ReadableStream | NodeJS.ReadWriteStream, ...pipeline: (NodeJS.ReadWriteStream | NodeJS.WritableStream)[])
   /** Note: if a writable stream is given, it must be last in the list */
-  constructor(options: PipelineOptions, input?: NodeJS.ReadableStream | NodeJS.ReadWriteStream, ...pipeline: Array<NodeJS.ReadWriteStream | NodeJS.WritableStream>)
+  constructor(options: PipelineOptions, input?: NodeJS.ReadableStream | NodeJS.ReadWriteStream, ...pipeline: (NodeJS.ReadWriteStream | NodeJS.WritableStream)[])
   // tslint:enable: max-line-length unified-signatures
 
   constructor(
     first: PipelineOptions | NodeJS.ReadableStream | NodeJS.WritableStream | undefined,
-    ...remainder: Array<NodeJS.ReadableStream | NodeJS.WritableStream | undefined>
+    ...remainder: (NodeJS.ReadableStream | NodeJS.WritableStream | undefined)[]
   ) {
-    let pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>
+    let pipeline: (NodeJS.ReadableStream | NodeJS.WritableStream)[]
     let opts: PipelineOptions = {}
     if (!first) {
       pipeline = [new PassThrough()]
@@ -92,7 +92,7 @@ export class Pipeline extends Duplex {
             objectMode: readableObjectMode,
             highWaterMark: readableObjectMode ? 1 : 1024,
           }))
-      } catch (err) {
+      } catch (err: any) {
         if (err.code != 'ERR_STREAM_CANNOT_PIPE') {
           throw err
         }
@@ -119,10 +119,10 @@ export class Pipeline extends Duplex {
       ...pipeline,
     ]
     if (isWritableStream(input)) {
-      this.writable = true
+      (this as any).writable = true
       this.in = input
     } else {
-      this.writable = false
+      (this as any).writable = false
       this.in = undefined
     }
     if (isReadableStream(output)) {
@@ -225,7 +225,7 @@ export class Pipeline extends Duplex {
   }
 
   // the "writable" side is the input into the child process
-  public async _write(chunk: any, encoding: string, callback: (err: Error | null | undefined) => void) {
+  public async _write(chunk: any, encoding: BufferEncoding, callback: (err: Error | null | undefined) => void) {
     if (!this._initialized) {
       this._init()
     }
@@ -236,7 +236,7 @@ export class Pipeline extends Duplex {
     try {
       await writeAsync(this.in, chunk, encoding)
       callback(undefined)
-    } catch (ex) {
+    } catch (ex: any) {
       callback(ex)
     }
   }

@@ -34,7 +34,3 @@ declare module 'events' {
     onceAsync(event: string | symbol): Promise<any[]>
   }
 }
-
-EventEmitter.prototype.onceAsync = function(event) {
-  return onceAsync(this, event)
-}

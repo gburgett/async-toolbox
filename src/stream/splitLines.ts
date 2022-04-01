@@ -61,7 +61,7 @@ export class SplitLines extends Transform {
         this.push(line)
       })
       cb()
-    } catch (ex) {
+    } catch (ex: any) {
       cb(ex)
     }
   }
@@ -92,7 +92,7 @@ export class CombineLines extends Transform {
       this.push(Buffer.from('\n'))
       this.lineCount++
       cb()
-    } catch (ex) {
+    } catch (ex: any) {
       cb(ex)
     }
   }

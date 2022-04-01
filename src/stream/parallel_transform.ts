@@ -47,6 +47,17 @@ export interface ParallelTransformOptions extends DuplexOptions {
  */
 export class ParallelTransform extends Transform {
 
+  public static from(generator: (chunk: any) => AsyncGenerator<any, void, unknown>, opts?: ParallelTransformOptions) {
+    return new ParallelTransform({
+      ...opts,
+      async transformAsync(chunk) {
+        for await(const value of generator(chunk)) {
+          this.push(value)
+        }
+      }
+    })
+  }
+
   // tslint:disable-next-line:variable-name
   private _semaphore: SemaphoreInterface
 

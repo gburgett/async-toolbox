@@ -80,7 +80,7 @@ test('propagates errors', async (t) => {
   try {
     await onceAsync(stream, 'end')
     t.fail('did not boom')
-  } catch (ex) {
+  } catch (ex: any) {
     // expected
     t.deepEqual(ex.message, 'boom')
   }
@@ -90,7 +90,7 @@ test('propagates errors', async (t) => {
 })
 
 test('runs batch transformations in parallel', async (t) => {
-  const promises: Array<() => void> = []
+  const promises: (() => void)[] = []
 
   const stream = batch(async (b: string[]) => {
     await new Promise<void>((res) => promises.push(res))

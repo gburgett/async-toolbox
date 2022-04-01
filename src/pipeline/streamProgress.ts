@@ -50,7 +50,7 @@ export class StreamProgress {
   private readonly _chalk: typeof fakeChalk
 
   constructor(
-    private readonly pipeline: Array<NodeJS.ReadableStream | NodeJS.WritableStream>,
+    private readonly pipeline: (NodeJS.ReadableStream | NodeJS.WritableStream)[],
     options?: Partial<StreamProgressOptions>,
     ) {
     const logStream = (options && options.logStream) || process.stderr
@@ -64,7 +64,7 @@ export class StreamProgress {
 
     this.state = pipeline.map((stream) => {
       const childPipeline = ('pipeline' in stream) && Array.isArray((stream as any).pipeline) ?
-        (stream as any).pipeline as Array<NodeJS.ReadableStream | NodeJS.WritableStream> :
+        (stream as any).pipeline as (NodeJS.ReadableStream | NodeJS.WritableStream)[] :
         undefined
       return {
         count: 0,
@@ -85,7 +85,7 @@ export class StreamProgress {
     if (this.options.color) {
       try {
         this._chalk = require('chalk')
-      } catch (ex) {
+      } catch (ex: any) {
         if (options && options.color === true) {
           throw new Error('"color: true" set on StreamProgress but "chalk" is not installed.\n' + ex.toString())
         }

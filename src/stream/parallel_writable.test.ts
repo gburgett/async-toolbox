@@ -3,6 +3,7 @@ import test from 'ava'
 import { toReadable } from '.'
 import { wait } from '..'
 import '../events'
+import { onceAsync } from '../events'
 import { endAsync, writeAsync } from './async_writer'
 import { ParallelWritable } from './parallel_writable'
 
@@ -20,7 +21,7 @@ test('pipes from readable', async (t) => {
     },
   })
 
-  const p = instance.onceAsync('finish')
+  const p = onceAsync(instance, 'finish')
   source.pipe(instance)
   await p
 
@@ -33,7 +34,7 @@ test('calls finalize if provided', async (t) => {
   const chunks: string[] = []
 
   let release = null as unknown as () => void
-  const blocker = new Promise((resolve) => release = resolve)
+  const blocker = new Promise<void>((resolve) => release = resolve)
 
   const impl = class extends ParallelWritable {
     public _writeAsync = async (chunk: string) => {

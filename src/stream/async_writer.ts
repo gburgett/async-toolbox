@@ -1,4 +1,4 @@
-import { Duplex, Writable } from 'stream'
+import { Writable } from 'stream'
 
 interface InternalAsyncState {
   _asyncWritableState: {
@@ -16,7 +16,7 @@ interface InternalAsyncState {
  * @param chunk The chunk to write
  * @param encoding The encoding of the chunk
  */
-export async function writeAsync(stream: NodeJS.WritableStream, chunk: any, encoding?: string): Promise<void> {
+export async function writeAsync(stream: NodeJS.WritableStream, chunk: any, encoding?: BufferEncoding): Promise<void> {
   if (!_initAsyncWritableState(stream)) {
     throw new Error(`_initAsyncWritableState returned false!`)
   }
@@ -82,17 +82,4 @@ function _awaitDraining(
       // queue up drain awaiters in a promise chain
       stream._asyncWritableState.drainPromise = stream._asyncWritableState.drainPromise.then(resolve)
     })
-}
-
-(Writable.prototype as any).writeAsync = function(chunk: any, encoding: any) {
-  return writeAsync(this, chunk, encoding)
-};
-(Duplex.prototype as any).writeAsync = function(chunk: any, encoding: any) {
-  return writeAsync(this, chunk, encoding)
-};
-(Writable.prototype as any).endAsync = function() {
-  return endAsync(this)
-};
-(Duplex.prototype as any).endAsync = function() {
-  return endAsync(this)
 }

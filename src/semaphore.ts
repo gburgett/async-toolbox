@@ -52,7 +52,7 @@ export class Semaphore extends EventEmitter {
 
   private inflight = [] as Task[]
   private inflightTokens: number = 0
-  private queue: Array<Task<any>> = []
+  private queue: Task<any>[] = []
 
   constructor(config?: SemaphoreConfig) {
     super()

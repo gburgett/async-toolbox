@@ -1,5 +1,5 @@
 export function debugStreams(
-  streams: Array<NodeJS.ReadableStream | NodeJS.WritableStream>,
+  streams: (NodeJS.ReadableStream | NodeJS.WritableStream)[],
   logger: Logger = console,
 ): NodeJS.Timeout {
   const states: any[] = []

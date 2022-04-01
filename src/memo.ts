@@ -40,7 +40,7 @@ export function memo<Fn extends (...args: any[]) => Promise<any>>(fn: Fn): Fn {
       gotIt = true
       loading = undefined
       return memoized
-    } catch (ex) {
+    } catch (ex: any) {
       loading = undefined
       throw ex
     }

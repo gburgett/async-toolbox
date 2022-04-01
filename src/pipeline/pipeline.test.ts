@@ -43,30 +43,6 @@ test('writes to multiple streams', async (t) => {
   t.deepEqual(lines[9999], '9999')
 })
 
-test('ends when output is closed before writing finishes', async (t) => {
-  const pipe = new Pipeline(
-    new SplitLines({highWaterMark: 1}),
-    rev(),
-    slice(0, 4),
-    new CombineLines({highWaterMark: 1}),
-  )
-  const input = toReadable(new Array(10000).fill('abcdefghijklmnopqrstuvwxyz\n'))
-
-  const chunks: any[] = []
-  const output = new Writable({
-    write(chunk, encoding, cb) {
-      chunks.push(chunk)
-      cb()
-    },
-  })
-  // close early
-  output.end()
-
-  await pipe.run(input, output)
-
-  t.deepEqual(chunks, [])
-})
-
 test('pipes lots of data through multiple ShellPipes', async (t) => {
   const dir = 'tmp/pipeline'
   await fs.mkdirp(dir)

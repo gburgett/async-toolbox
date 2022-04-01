@@ -29,7 +29,9 @@ test('timeout propagates error from function', async (t) => {
       await wait(1)
       throw new Error('test error')
     }, 10),
-    'test error',
+    {
+      message: 'test error'
+    },
   )
 
 })

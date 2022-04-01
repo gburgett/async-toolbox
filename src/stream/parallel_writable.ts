@@ -72,7 +72,7 @@ export class ParallelWritable extends Writable {
       .catch((err) => this.emit('error', err))
   }
 
-  public _writev(chunks: Array<{ chunk: any, encoding: string }>, callback: (err?: any) => void) {
+  public _writev(chunks: { chunk: any, encoding: string }[], callback: (err?: any) => void) {
     let gtg = true
     const promises = chunks.map(async (c) => {
       await this._semaphore.lock(async () => {

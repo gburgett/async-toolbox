@@ -50,7 +50,7 @@ test('still writable after an error', async (t) => {
 
 test('waits for the drain event if draining', async (t) => {
   const chunks = [] as string[]
-  const callbacks = [] as Array<(error?: Error) => void>
+  const callbacks = [] as ((error?: Error) => void)[]
   const stream = new Writable({
     highWaterMark: 0,
     write: (chunk, encoding, cb) => {
@@ -75,7 +75,7 @@ test('waits for the drain event if draining', async (t) => {
 
 test('recursively writes the chunk after drain event', async (t) => {
   const chunks = [] as string[]
-  const callbacks = [] as Array<(error?: Error) => void>
+  const callbacks = [] as ((error?: Error) => void)[]
   const stream = new Writable({
     highWaterMark: 0,
     write: (chunk, encoding, cb) => {
@@ -116,7 +116,7 @@ test('recursively writes the chunk after drain event', async (t) => {
 
 test('can resume after draining', async (t) => {
   const chunks = [] as string[]
-  const callbacks = [] as Array<(error?: Error) => void>
+  const callbacks = [] as ((error?: Error) => void)[]
   const stream = new Writable({
     highWaterMark: 0,
     write: (chunk, encoding, cb) => {

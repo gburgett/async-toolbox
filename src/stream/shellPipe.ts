@@ -31,7 +31,7 @@ export class ShellPipe extends Duplex {
   private stdout: Readable | undefined
   private stdin: Writable | undefined
 
-  private inProgressWrites: Array<(err: Error | null | undefined) => void> = []
+  private inProgressWrites: ((err: Error | null | undefined) => void)[] = []
 
   constructor(public readonly shellCommand: string, private readonly options?: ShellPipeOptions) {
     super(Object.assign({},
@@ -45,7 +45,7 @@ export class ShellPipe extends Duplex {
   }
 
   // the "writable" side is the input into the child process
-  public async _write(chunk: any, encoding: string, callback: (err: Error | null | undefined) => void) {
+  public async _write(chunk: any, encoding: BufferEncoding, callback: (err: Error | null | undefined) => void) {
     if (!this._process) {
       callback(new Error(`Command not yet spawned: '${this.shellCommand}'`))
       return
@@ -63,7 +63,7 @@ export class ShellPipe extends Duplex {
       if (this.inProgressWrites.indexOf(callback) >= 0) {
         callback(undefined)
       }
-    } catch (ex) {
+    } catch (ex: any) {
       if (this.inProgressWrites.indexOf(callback) >= 0) {
         callback(ex)
       }
@@ -82,7 +82,7 @@ export class ShellPipe extends Duplex {
       cb()
     })
 
-    this._process.stdin.end()
+    if (this._process.stdin) { this._process.stdin.end() }
   }
 
   public _read(size?: number) {
@@ -150,7 +150,7 @@ export class ShellPipe extends Duplex {
       inProgress.forEach((cb) => {
         try {
           cb(undefined)
-        } catch (ex) {
+        } catch (ex: any) {
           // suppress
         }
       })

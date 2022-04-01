@@ -99,6 +99,10 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
       return this.promises.catch(onrejected)
   }
 
+  public finally(onfinally?: (() => void) | null): Promise<T[]> {
+    return this.promises.finally(onfinally)
+  }
+
   /**
    * Converts this parallel list to a sequential list, so that the next tasks
    * execute in sequence.

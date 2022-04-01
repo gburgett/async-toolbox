@@ -81,11 +81,3 @@ function _initAsyncReadableState(
   }
   return true
 }
-
-(Readable.prototype as any).readAsync = function(size?: number) {
-  return readAsync(this, size)
-};
-
-(Duplex.prototype as any).readAsync = function(size?: number) {
-  return readAsync(this, size)
-}

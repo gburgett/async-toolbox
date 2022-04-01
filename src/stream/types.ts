@@ -11,9 +11,9 @@ export interface Writable<T> extends WritableImpl {
 
   end(cb?: () => void): void
   end(chunk: T, cb?: () => void): void
-  end(chunk: T, encoding?: string, cb?: () => void): void
-  end(chunk: any, cb?: () => void): void
-  end(chunk: any, encoding?: string, cb?: () => void): void
+  end(chunk: T, encoding?: string, cb?: () => void): this
+  end(chunk: any, cb?: () => void): this
+  end(chunk: any, encoding?: string, cb?: () => void): this
 }
 
 export interface Transform<T, U> extends TransformImpl {
@@ -22,8 +22,8 @@ export interface Transform<T, U> extends TransformImpl {
 
   write(chunk: T, cb?: (error: Error | null | undefined) => void): boolean
   write(chunk: T, encoding?: string, cb?: (error: Error | null | undefined) => void): boolean
-  end(cb?: () => void): void
-  end(buffer: Buffer, cb?: () => void): void
-  end(chunk: T, cb?: () => void): void
-  end(chunk: T, encoding?: string, cb?: () => void): void
+  end(cb?: () => void): this
+  end(buffer: Buffer, cb?: () => void): this
+  end(chunk: T, cb?: () => void): this
+  end(chunk: T, encoding?: string, cb?: () => void): this
 }

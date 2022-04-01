@@ -73,7 +73,7 @@ export function batch<T, U>(
 
 class BatchStream<T, U> extends TransformImpl {
   public readonly name?: string
-  private inProgress: Array<Promise<any>> = []
+  private inProgress: Promise<any>[] = []
   private nextBatch: T[] = []
 
   constructor(
