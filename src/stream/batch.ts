@@ -127,7 +127,6 @@ class BatchStream<T, U> extends TransformImpl {
         }
 
         this.processQueue()
-        await wait(1)
       }
 
       // Wait for all the in-progress batch transformations to finish

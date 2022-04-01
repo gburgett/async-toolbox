@@ -71,13 +71,13 @@ test('memo handles inline exceptions', async (t) => {
 
 test('memo passes this arg', async (t) => {
   const args: any[] = []
-  const fn = memo(function(a: string, b: number, c: string) {
+  const fn = memo(function(this: {}, a: string, b: number, c: string) {
     args.push(this, a, b, c)
     return Promise.resolve('a')
   })
   const thisObj = {}
 
-  await fn.call(thisObj, 'a', 'b', 'c')
+  await fn.call(thisObj, 'a', 2, 'c')
 
-  t.deepEqual(args, [thisObj, 'a', 'b', 'c'])
+  t.deepEqual(args, [thisObj, 'a', 2, 'c'])
 })
