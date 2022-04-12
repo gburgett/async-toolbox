@@ -25,7 +25,7 @@ export interface ParallelTransformOptions extends DuplexOptions {
    */
   semaphore?: SemaphoreInterface
 
-  flush?: (callback: TransformCallback) => any
+  flushAsync?: (this: ParallelTransform) => Promise<void>
 
   /**
    * Implement this function to transform a single chunk, calling `this.push()` to
@@ -38,6 +38,9 @@ export interface ParallelTransformOptions extends DuplexOptions {
   transformAsync?(this: ParallelTransform, chunk: any, lock: ReadLock): Promise<void>
 }
 
+type TransformGenerator<T = any, U = any> = (chunk: T) => AsyncGenerator<U, void, unknown>
+type TransformFlush<U = any> = () => AsyncGenerator<U, void, unknown>
+
 /**
  * An extension of a Transform stream which can process chunks in parallel.
  * Ordering is not preserved, because the individual transformations may complete
@@ -47,12 +50,42 @@ export interface ParallelTransformOptions extends DuplexOptions {
  */
 export class ParallelTransform extends Transform {
 
-  public static from(generator: (chunk: any) => AsyncGenerator<any, void, unknown>, opts?: ParallelTransformOptions) {
+  public static from(
+    generator: TransformGenerator,
+    opts?: ParallelTransformOptions
+  ): ParallelTransform
+
+  public static from(
+    generator: TransformGenerator,
+    flush: TransformFlush,
+    opts?: ParallelTransformOptions
+  ): ParallelTransform
+
+  public static from(
+      generator: TransformGenerator,
+      flush?: TransformFlush | ParallelTransformOptions,
+      opts?: ParallelTransformOptions
+    ) {
+    let flushFn: TransformFlush | undefined
+    if (typeof flush == 'function') {
+      flushFn = flush
+    } else if(typeof flush == 'object') {
+      opts = flush
+      flushFn = flush = undefined
+    }
+
     return new ParallelTransform({
       ...opts,
       async transformAsync(chunk) {
         for await(const value of generator(chunk)) {
           this.push(value)
+        }
+      },
+      async flushAsync() {
+        if (flushFn) {
+          for await(const value of flushFn()) {
+            this.push(value)
+          }
         }
       }
     })
@@ -67,6 +100,10 @@ export class ParallelTransform extends Transform {
     this._semaphore = opts.semaphore || new Semaphore({ tokens: opts.maxParallelChunks || 4 })
     if (opts.transformAsync) {
       this._transformAsync = opts.transformAsync
+    }
+
+    if (opts.flushAsync) {
+      this._flushAsync = opts.flushAsync
     }
 
     if (!this._transformAsync) {
