@@ -1,7 +1,0 @@
-language: node_js
-node_js:
-  - 13
-script:
-  - yarn run test
-  - yarn run coveralls
-  - yarn run lint
