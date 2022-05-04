@@ -20,7 +20,7 @@
     "build": "tsc",
     "check-types": "tsc --noemit",
     "prepack": "yarn run build && bin/template_es_modules",
-    "clean": "rm -rf dist tmp; bash -c 'shopt -s globstar; rm src/**/*.js src/**/*.map src/**/*.d.ts *.js *.d.ts'; true"
+    "clean": "rm -rf dist tmp; rm $(find src -type f -name '*.js' -o -name '*.d.ts' -o -name '*.map'); true"
   },
   "keywords": [
     "async",
