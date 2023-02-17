@@ -1,7 +1,7 @@
 import test from 'ava'
 
 import { wait } from '.'
-import { timeout } from './timeout'
+import { isomorphicPerformance, timeout } from './timeout'
 
 test('timeout returns action result if no timeout', async (t) => {
 
@@ -34,4 +34,28 @@ test('timeout propagates error from function', async (t) => {
     },
   )
 
+})
+
+test('timeout aborts', async (t) => {
+  let resolved = false
+  let erroredAt = 0
+
+  const start = isomorphicPerformance.now()
+  await t.throwsAsync(timeout(async (abort) => {
+      try {
+        await wait(100, abort)
+        resolved = true
+      } catch(ex) {
+        erroredAt = isomorphicPerformance.now()
+      }
+    }, 10),
+    {
+      name: 'TimeoutError',
+    },
+  )
+
+  // does the abort controller properly abort?
+  await wait(100)
+  t.false(resolved)
+  t.true(erroredAt - start < 100)
 })

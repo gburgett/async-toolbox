@@ -1,3 +1,4 @@
+import { AbortError, AbortSignal } from './abort'
 
 declare var performance: { now(): number }
 export const isomorphicPerformance: { now(): number } = (() => {
@@ -21,7 +22,9 @@ export const isomorphicPerformance: { now(): number } = (() => {
 })()
 
 // tslint:disable-next-line: no-shadowed-variable
-export function timeout<T>(action: () => Promise<T>, timeout: number): Promise<T> {
+export function timeout<T>(action: (abort: { signal: AbortSignal}) => Promise<T>, timeout: number): Promise<T> & {} {
+  const controller = new AbortController
+
   let completed = false
   return new Promise<T>(async (resolve, reject) => {
     const start = isomorphicPerformance.now()
@@ -29,12 +32,14 @@ export function timeout<T>(action: () => Promise<T>, timeout: number): Promise<T
       if (!completed) {
         completed = true
         const end = isomorphicPerformance.now()
+        controller.abort()
+
         reject(new TimeoutError(end - start, timeout))
       }
     }, timeout)
 
     try {
-      const result = await action()
+      const result = await action({ signal: controller.signal })
       if (!completed) {
         completed = true
         clearTimeout(timer)
