@@ -59,3 +59,29 @@ test('timeout aborts', async (t) => {
   t.false(resolved)
   t.true(erroredAt - start < 100)
 })
+
+test('can abort before timeout', async (t) => {
+  let resolved = false
+  let erroredAt = 0
+
+  const start = isomorphicPerformance.now()
+  const p = timeout(async (abort) => {
+      try {
+        await wait(100, abort)
+        resolved = true
+      } catch(ex) {
+        erroredAt = isomorphicPerformance.now()
+      }
+    }, 10)
+
+  // act
+  p.abort()
+
+  t.true(erroredAt - start < 10)
+
+  await t.throwsAsync(p)
+
+  // does the abort controller properly abort?
+  await wait(100)
+  t.false(resolved)
+})

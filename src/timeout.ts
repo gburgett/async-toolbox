@@ -22,13 +22,19 @@ export const isomorphicPerformance: { now(): number } = (() => {
 })()
 
 // tslint:disable-next-line: no-shadowed-variable
-export function timeout<T>(action: (abort: { signal: AbortSignal}) => Promise<T>, timeout: number): Promise<T> & {} {
-  const controller = new AbortController
-
+export function timeout<T>(action: (abort: { signal: AbortSignal}) => Promise<T>, timeout: number): Promise<T> & {
+  abort(): void
+} {
+  const controller = new AbortController()
+  let timer: any
   let completed = false
-  return new Promise<T>(async (resolve, reject) => {
+  let reject: (reason?: any) => void
+
+  const p = new Promise<T>(async (resolve, _reject) => {
     const start = isomorphicPerformance.now()
-    const timer = setTimeout(() => {
+    reject = _reject
+
+    timer = setTimeout(() => {
       if (!completed) {
         completed = true
         const end = isomorphicPerformance.now()
@@ -51,6 +57,15 @@ export function timeout<T>(action: (abort: { signal: AbortSignal}) => Promise<T>
         clearTimeout(timer)
         reject(ex)
       }
+    }
+  })
+
+  return Object.assign(p, {
+    abort: () => {
+      if (completed) { return }
+      controller.abort()
+      clearTimeout(timer)
+      reject(new AbortError())
     }
   })
 }
