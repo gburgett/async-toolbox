@@ -1,4 +1,3 @@
-import { EventEmitter } from 'events'
 import { promisify, TaskCB } from './promisify'
 
 export interface SemaphoreConfig {
@@ -47,16 +46,16 @@ type Task<T = any> = {
  * A Semaphore which queues up tasks to be executed once prior tasks are complete.
  * Number of concurrent inflight tasks is configurable at initialization.
  */
-export class Semaphore extends EventEmitter {
+export class Semaphore {
   public config: Readonly<SemaphoreConfig>
 
   private inflight = [] as Task[]
   private inflightTokens: number = 0
   private queue: Task<any>[] = []
 
-  constructor(config?: SemaphoreConfig) {
-    super()
+  private listenerMap: Map<string, Set<(...args: any[]) => void>> = new Map()
 
+  constructor(config?: SemaphoreConfig) {
     this.config = Object.assign({
       tokens: 1,
     }, config)
@@ -194,7 +193,7 @@ export class Semaphore extends EventEmitter {
     task.state = 'released'
     this.inflight.splice(taskIndex, 1)
     if (this.isEmpty()) {
-      this.emit('empty')
+      this._emit('empty')
     }
   }
 
@@ -259,6 +258,53 @@ export class Semaphore extends EventEmitter {
       } else {
         throw e
       }
+    }
+  }
+
+  // implement part of the EventEmitter interface
+  public on(event: 'empty', listener: () => void): this
+  public on(event: string, listener: (...args: any[]) => void): this {
+    let set = this.listenerMap.get(event)
+    if (!set) {
+      set = new Set()
+      this.listenerMap.set(event, set)
+    }
+    set.add(listener)
+    return this
+  }
+  public addListener = this.on
+
+  public once(event: 'empty', listener: () => void): this
+  public once(event: string, listener: (...args: any[]) => void): this {
+    return this.on(event as any, (...args) => {
+      try {
+        listener(...args)
+      } finally {
+        this.off(event as any, listener)
+      }
+    })
+  }
+
+  public off(event: 'empty', listener: () => void): this
+  public off(event: string, listener: (...args: any[]) => void): this {
+    const set = this.listenerMap.get(event)
+    if (set) {
+      set.delete(listener)
+    }
+    return this
+  }
+  public removeListener = this.off
+
+  private _emit(event: string, ...args: any[]) {
+    const set = this.listenerMap.get(event)
+    if (set) {
+      set.forEach((listener) => {
+        try {
+          listener.apply(this, args)
+        } catch (e) {
+          // ignore errors in listeners
+        }
+      })
     }
   }
 
