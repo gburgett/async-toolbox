@@ -32,7 +32,7 @@ export class SequentialAsyncList<T> implements Promise<T[]> {
     return new SequentialAsyncList<T>(items, options || {})
   }
 
-  public readonly [Symbol.toStringTag]: string
+  public readonly [Symbol.toStringTag]: string = 'SequentialAsyncList'
   private _semaphore: { lock: SemaphoreLock }
 
   private constructor(private readonly promises: Promise<T[]>, private readonly options: SequentialAsyncListOptions) {

@@ -30,7 +30,7 @@ export class ParallelAsyncList<T> implements Promise<T[]> {
     return new ParallelAsyncList<T>(items, options || {})
   }
 
-  public readonly [Symbol.toStringTag]: string
+  public readonly [Symbol.toStringTag]: string = 'ParallelAsyncList'
   private _semaphore: { lock: SemaphoreLock }
 
   private constructor(private promises: Promise<T[]>, private readonly options: ParallelAsyncListOptions) {
