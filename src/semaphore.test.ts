@@ -21,6 +21,25 @@ test('runs a task', async (t) => {
   t.true(p1done == 'hi there')
 })
 
+test('emits the "empty" event', async (t) => {
+  const semaphore = new Semaphore()
+
+  const p1 = semaphore.lock(async () => {
+    await wait(1)
+    return 'hi there'
+  })
+
+  let empty = false
+  semaphore.on('empty', () => { empty = true })
+
+  await wait(1)
+  t.false(empty)
+
+  await p1
+
+  t.true(empty)
+})
+
 test('handles task error', async (t) => {
   const semaphore = new Semaphore()
 
